@@ -102,22 +102,11 @@ class handler(BaseHTTPRequestHandler):
         self._responder(204, {})
 
     def do_GET(self) -> None:
-        # Diagnóstico: confirma si el motor se importó y qué archivos hay al lado.
-        try:
-            archivos = sorted(os.listdir(_DIR))
-        except Exception as exc:  # noqa: BLE001
-            archivos = [f"<error listando: {exc}>"]
-        self._responder(200, {
-            "motor_importado": _ENGINE_OK,
-            "error_import": _ENGINE_ERROR,
-            "directorio": _DIR,
-            "archivos": archivos,
-            "ayuda": _AYUDA,
-        })
+        self._responder(200, _AYUDA)
 
     def do_POST(self) -> None:
         if not _ENGINE_OK:
-            self._responder(500, {"error": "No se pudo cargar el motor", "detalle": _ENGINE_ERROR})
+            self._responder(500, {"error": "No se pudo cargar el motor de análisis"})
             return
         try:
             longitud = int(self.headers.get("content-length", 0) or 0)
