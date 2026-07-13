@@ -55,6 +55,20 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   // Relojes
   { nombre: 'Seiko SKX007 (reloj automático)', categoria: 'Relojes', q: 'Seiko SKX007 automatic', min: 150 },
   { nombre: 'Casio G-Shock', categoria: 'Relojes', q: 'Casio G-Shock reloj', min: 60 },
+  // --- Candidatos de alto volumen (más confianza) ---
+  { nombre: 'Nike Air Force 1 07', categoria: 'Zapatillas', q: 'Nike Air Force 1 07 white', min: 50 },
+  { nombre: 'Air Jordan 4 Retro', categoria: 'Zapatillas', q: 'Air Jordan 4 Retro', min: 120 },
+  { nombre: 'Adidas Samba OG', categoria: 'Zapatillas', q: 'Adidas Samba OG', min: 55 },
+  { nombre: 'Meta Quest 3', categoria: 'Electrónica', q: 'Meta Quest 3 128GB', min: 250 },
+  { nombre: 'Apple Watch Series 9', categoria: 'Electrónica', q: 'Apple Watch Series 9 45mm', min: 250 },
+  { nombre: 'Kindle Paperwhite', categoria: 'Electrónica', q: 'Kindle Paperwhite', min: 70 },
+  { nombre: 'Nintendo Switch Lite (consola)', categoria: 'Consolas', q: 'Nintendo Switch Lite consola', min: 100 },
+  { nombre: 'Pokémon Elite Trainer Box (ETB)', categoria: 'TCG', q: 'Pokemon Elite Trainer Box sellado', min: 30 },
+  { nombre: 'LEGO Icons Bonsái 10281', categoria: 'LEGO', q: 'LEGO 10281 Bonsai Tree', min: 30 },
+  { nombre: 'LEGO Botánica Orquídea 10311', categoria: 'LEGO', q: 'LEGO 10311 Orchid', min: 25 },
+  { nombre: 'LEGO Star Wars AT-AT 75313', categoria: 'LEGO', q: 'LEGO 75313 AT-AT', min: 120 },
+  { nombre: 'Vinilo Fleetwood Mac - Rumours', categoria: 'Vinilos', q: 'Fleetwood Mac Rumours vinyl LP', min: 18 },
+  { nombre: 'Garmin Forerunner (reloj GPS)', categoria: 'Relojes', q: 'Garmin Forerunner reloj GPS', min: 120 },
 ];
 
 interface Listado {
