@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Radar, Package, Calculator } from 'lucide-react';
+import { Radar, Package, Calculator, TrendingUp } from 'lucide-react';
 import RadarScreen from './screens/RadarScreen';
 import InventarioScreen from './screens/InventarioScreen';
+import InversionScreen from './screens/InversionScreen';
 import FlipprScreen from './screens/FlipprScreen';
 
-type Tab = 'radar' | 'inventario' | 'analizar';
+type Tab = 'radar' | 'inversion' | 'inventario' | 'analizar';
 
 const App: React.FC = () => {
   const [tab, setTab] = useState<Tab>('radar');
@@ -30,6 +31,7 @@ const App: React.FC = () => {
           </span>
           <nav className="flex items-center gap-1 sm:gap-2">
             {tabBtn('radar', 'Radar', Radar)}
+            {tabBtn('inversion', 'Inversión', TrendingUp)}
             {tabBtn('inventario', 'Inventario', Package)}
             {tabBtn('analizar', 'Analizador', Calculator)}
           </nav>
@@ -37,6 +39,7 @@ const App: React.FC = () => {
       </header>
 
       {tab === 'radar' && <RadarScreen />}
+      {tab === 'inversion' && <InversionScreen />}
       {tab === 'inventario' && <InventarioScreen />}
       {tab === 'analizar' && <FlipprScreen />}
     </div>
