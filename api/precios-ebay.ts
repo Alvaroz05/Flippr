@@ -67,25 +67,6 @@ export default async function handler(req: any, res: any) {
   const clientSecret = secretRaw.trim();
   const marketplace = process.env.EBAY_MARKETPLACE_ID || 'EBAY_ES';
 
-  // Diagnóstico seguro (?debug=1): no expone el secreto, solo entorno y longitudes.
-  if (req.query?.debug) {
-    return res.status(200).json({
-      id_configurada: !!idRaw,
-      secret_configurada: !!secretRaw,
-      entorno_id: clientId.includes('-PRD-')
-        ? 'PRODUCTION'
-        : clientId.includes('-SBX-')
-        ? 'SANDBOX'
-        : 'desconocido',
-      id_prefijo: clientId.slice(0, 14),
-      id_longitud_original: idRaw.length,
-      id_longitud_sin_espacios: clientId.length,
-      secret_longitud_original: secretRaw.length,
-      secret_longitud_sin_espacios: clientSecret.length,
-      marketplace,
-    });
-  }
-
   if (!clientId || !clientSecret) {
     return res.status(400).json({
       error:

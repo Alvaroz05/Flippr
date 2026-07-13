@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, TrendingUp, Clock, AlertCircle, CheckCircle, XCircle, Loader2, Download } from 'lucide-react';
 
 type TipoTiming = 'evento' | 'fisico' | 'rotura_stock';
@@ -46,7 +46,7 @@ const veredictoStyle = (v: string) => {
   return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', Icon: XCircle };
 };
 
-export default function FlipprScreen() {
+export default function FlipprScreen({ productoInicial }: { productoInicial?: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [informe, setInforme] = useState<Informe | null>(null);
@@ -63,7 +63,12 @@ export default function FlipprScreen() {
   const [cargandoDiscogs, setCargandoDiscogs] = useState(false);
 
   // Viabilidad
-  const [nombre, setNombre] = useState('');
+  const [nombre, setNombre] = useState(productoInicial || '');
+
+  // Si llegamos desde el catálogo con un producto, lo precargamos.
+  useEffect(() => {
+    if (productoInicial) setNombre(productoInicial);
+  }, [productoInicial]);
   const [precioCompra, setPrecioCompra] = useState('');
   const [plataforma, setPlataforma] = useState('ebay');
   const [historicoVentas, setHistoricoVentas] = useState('');
