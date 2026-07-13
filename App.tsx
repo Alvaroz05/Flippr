@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { LayoutGrid, Calculator } from 'lucide-react';
-import CatalogoScreen from './screens/CatalogoScreen';
+import { Radar, Package, Calculator } from 'lucide-react';
+import RadarScreen from './screens/RadarScreen';
+import InventarioScreen from './screens/InventarioScreen';
 import FlipprScreen from './screens/FlipprScreen';
 
-type Tab = 'catalogo' | 'analizar';
+type Tab = 'radar' | 'inventario' | 'analizar';
 
 const App: React.FC = () => {
-  const [tab, setTab] = useState<Tab>('catalogo');
+  const [tab, setTab] = useState<Tab>('radar');
   const [prefill, setPrefill] = useState('');
 
-  // Desde el catálogo: precarga el producto y salta al analizador.
+  // Desde el Radar: precarga el producto y salta al analizador.
   const irAAnalizar = (nombre: string) => {
     setPrefill(nombre);
     setTab('analizar');
@@ -18,12 +19,12 @@ const App: React.FC = () => {
   const tabBtn = (id: Tab, label: string, Icon: typeof Calculator) => (
     <button
       onClick={() => setTab(id)}
-      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+      className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
         tab === id ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100'
       }`}
     >
       <Icon className="w-4 h-4" />
-      {label}
+      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 
@@ -34,18 +35,17 @@ const App: React.FC = () => {
           <span className="text-xl font-[900] tracking-tighter text-slate-900">
             Flip<span className="text-primary-600">pr</span>
           </span>
-          <nav className="flex items-center gap-2">
-            {tabBtn('catalogo', 'Catálogo', LayoutGrid)}
+          <nav className="flex items-center gap-1 sm:gap-2">
+            {tabBtn('radar', 'Radar', Radar)}
+            {tabBtn('inventario', 'Inventario', Package)}
             {tabBtn('analizar', 'Analizador', Calculator)}
           </nav>
         </div>
       </header>
 
-      {tab === 'catalogo' ? (
-        <CatalogoScreen onAnalizar={irAAnalizar} />
-      ) : (
-        <FlipprScreen productoInicial={prefill} />
-      )}
+      {tab === 'radar' && <RadarScreen onAnalizar={irAAnalizar} />}
+      {tab === 'inventario' && <InventarioScreen />}
+      {tab === 'analizar' && <FlipprScreen productoInicial={prefill} />}
     </div>
   );
 };
