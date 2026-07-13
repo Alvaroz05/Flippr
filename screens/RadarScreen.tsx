@@ -37,6 +37,12 @@ export default function RadarScreen() {
   const [data, setData] = useState<Data | null>(null);
   const [anadidos, setAnadidos] = useState<Record<string, boolean>>({});
   const [abierto, setAbierto] = useState<Record<string, boolean>>({});
+  const [pagina, setPagina] = useState(0);
+
+  const POR_PAGINA = 5;
+  const productos = data?.productos ?? [];
+  const totalPaginas = Math.max(1, Math.ceil(productos.length / POR_PAGINA));
+  const visibles = productos.slice(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA);
 
   const cargar = async () => {
     setLoading(true);
@@ -46,6 +52,7 @@ export default function RadarScreen() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Error al cargar el radar');
       setData(json as Data);
+      setPagina(0);
     } catch (err: any) {
       setError(err.message || 'Error inesperado');
     }
@@ -92,7 +99,7 @@ export default function RadarScreen() {
             </div>
 
             <div className="space-y-4">
-              {data.productos.map((p) => (
+              {visibles.map((p) => (
                 <div key={p.nombre} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                   {/* cabecera con score */}
                   <div className="flex items-start justify-between gap-3">
@@ -173,11 +180,21 @@ export default function RadarScreen() {
               ))}
             </div>
 
-            <div className="mt-6 flex items-center justify-between">
-              <p className="text-xs text-slate-400">Comprobado: {new Date(data.generado).toLocaleString('es-ES')}</p>
-              <button onClick={cargar} className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700">
-                <RefreshCw className="w-4 h-4" /> Recalcular ahora
-              </button>
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-xs text-slate-400">
+                Mostrando {pagina * POR_PAGINA + 1}–{Math.min((pagina + 1) * POR_PAGINA, productos.length)} de {productos.length}
+              </p>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => { setPagina((p) => (p + 1) % totalPaginas); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" /> Ver otros 5
+                </button>
+                <button onClick={cargar} className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700">
+                  Recalcular precios
+                </button>
+              </div>
             </div>
           </>
         )}
