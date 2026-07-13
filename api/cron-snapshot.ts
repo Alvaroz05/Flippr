@@ -6,7 +6,28 @@
 //
 // Requiere un store KV en Vercel. Protegido opcionalmente con CRON_SECRET.
 
-import { kvDisponible, kvGet, kvSet } from '../lib/kv';
+// KV inline (Vercel/Upstash REST) para evitar problemas de bundling de imports.
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const kvDisponible = () => !!(KV_URL && KV_TOKEN);
+async function kvCmd(args: string[]): Promise<any> {
+  const res = await fetch(KV_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  });
+  const data: any = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error de KV');
+  return data.result;
+}
+async function kvGet<T>(key: string): Promise<T | null> {
+  const r = await kvCmd(['GET', key]);
+  if (r == null) return null;
+  try { return JSON.parse(r) as T; } catch { return null; }
+}
+async function kvSet(key: string, value: unknown): Promise<void> {
+  await kvCmd(['SET', key, JSON.stringify(value)]);
+}
 
 interface Historial {
   dias: Record<string, Record<string, { precio_tipico: number; precio_actual: number; stock: number; score: number }>>;

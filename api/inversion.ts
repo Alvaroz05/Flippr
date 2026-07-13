@@ -4,7 +4,21 @@
 // productos que estadísticamente están SUBIENDO de precio y valorarlos como
 // inversión. Todo con datos reales; si no hay histórico suficiente, lo dice.
 
-import { kvDisponible, kvGet } from '../lib/kv';
+// KV inline (Vercel/Upstash REST) para evitar problemas de bundling de imports.
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const kvDisponible = () => !!(KV_URL && KV_TOKEN);
+async function kvGet<T>(key: string): Promise<T | null> {
+  const res = await fetch(KV_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(['GET', key]),
+  });
+  const data: any = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error de KV');
+  if (data.result == null) return null;
+  try { return JSON.parse(data.result) as T; } catch { return null; }
+}
 
 interface Historial {
   dias: Record<string, Record<string, { precio_tipico: number; precio_actual: number; stock: number; score: number }>>;
