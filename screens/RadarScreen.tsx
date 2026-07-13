@@ -1,79 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import { Radar, Loader2, XCircle, ArrowRight, RefreshCw, PlusCircle, Check } from 'lucide-react';
+import { Radar, Loader2, XCircle, RefreshCw, PlusCircle, Check, ExternalLink, Clock } from 'lucide-react';
 import { anadirItem } from '../lib/inventario';
 
-interface Distribucion {
-  min: number;
-  p25: number;
-  mediana: number;
-  p75: number;
-  max: number;
+interface Tienda {
+  tienda: string;
+  precio: number;
+  moneda: string;
+  condicion: string;
+  disponible: boolean;
+  url: string;
 }
 interface Producto {
   nombre: string;
   categoria: string;
-  marketplace: string;
-  query: string;
-  muestras: number;
-  distribucion: Distribucion;
-  comprar: number;
-  vender: number;
-  comisiones: number;
-  beneficio: number;
-  roi: number;
-  confianza: 'alta' | 'media' | 'baja';
+  precio_actual: number;
+  precio_tipico: number;
+  descuento_pct: number;
+  stock: number;
+  comprobado: string;
+  tiendas: Tienda[];
 }
-interface CatalogoData {
+interface Data {
   generado: string;
-  metrica: string;
-  aviso: string;
+  nota: string;
   productos: Producto[];
-  sin_datos: string[];
 }
 
-const roiColor = (r: number) => (r >= 30 ? 'text-emerald-600' : r >= 10 ? 'text-amber-600' : 'text-slate-500');
-
-const confBadge = (c: Producto['confianza']) => {
-  const map = {
-    alta: { dot: 'bg-emerald-500', text: 'text-emerald-700', label: 'Confianza alta' },
-    media: { dot: 'bg-amber-500', text: 'text-amber-700', label: 'Confianza media' },
-    baja: { dot: 'bg-slate-400', text: 'text-slate-500', label: 'Confianza baja' },
-  } as const;
-  return map[c];
-};
-
-// Barra de distribución de precios reales (una serie: magnitud + dispersión).
-// Verde de marca para los datos; texto en tinta slate.
-function BarraDistribucion({ d }: { d: Distribucion }) {
-  const rango = Math.max(d.max - d.min, 0.01);
-  const pct = (v: number) => Math.min(100, Math.max(0, ((v - d.min) / rango) * 100));
-  const izq = pct(d.p25);
-  const der = pct(d.p75);
-  const med = pct(d.mediana);
-  return (
-    <div className="mt-3">
-      <div className="relative h-2.5 rounded-full bg-slate-100">
-        {/* banda intercuartílica P25–P75 */}
-        <div
-          className="absolute top-0 h-2.5 rounded-full bg-primary-200"
-          style={{ left: `${izq}%`, width: `${Math.max(der - izq, 2)}%` }}
-        />
-        {/* mediana */}
-        <div className="absolute -top-0.5 h-3.5 w-[2px] bg-primary-600 rounded" style={{ left: `${med}%` }} />
-      </div>
-      <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-        <span>{d.min} €</span>
-        <span className="text-primary-700 font-semibold">mediana {d.mediana} €</span>
-        <span>{d.max} €</span>
-      </div>
-    </div>
-  );
-}
-
-export default function RadarScreen({ onAnalizar }: { onAnalizar: (nombre: string) => void }) {
+export default function RadarScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<CatalogoData | null>(null);
+  const [data, setData] = useState<Data | null>(null);
   const [anadidos, setAnadidos] = useState<Record<string, boolean>>({});
 
   const cargar = async () => {
@@ -83,7 +39,7 @@ export default function RadarScreen({ onAnalizar }: { onAnalizar: (nombre: strin
       const res = await fetch('/api/catalogo');
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Error al cargar el radar');
-      setData(json as CatalogoData);
+      setData(json as Data);
     } catch (err: any) {
       setError(err.message || 'Error inesperado');
     }
@@ -95,15 +51,11 @@ export default function RadarScreen({ onAnalizar }: { onAnalizar: (nombre: strin
   }, []);
 
   const anadir = (p: Producto) => {
-    const entrada = window.prompt(`¿A cuánto compraste "${p.nombre}"? (€)`, String(p.comprar));
-    if (entrada === null) return;
-    const precioCompra = Number(entrada.replace(',', '.'));
-    if (!Number.isFinite(precioCompra) || precioCompra <= 0) return;
     anadirItem({
       nombre: p.nombre,
       fuente: 'ebay',
-      query: p.query,
-      precioCompra,
+      query: p.nombre,
+      precioCompra: p.precio_actual,
       fecha: new Date().toISOString().slice(0, 10),
     });
     setAnadidos((a) => ({ ...a, [p.nombre]: true }));
@@ -115,10 +67,10 @@ export default function RadarScreen({ onAnalizar }: { onAnalizar: (nombre: strin
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="flex items-center gap-3 mb-2">
             <Radar className="w-7 h-7 text-primary-500" />
-            <h1 className="text-3xl font-bold font-heading">Radar de oportunidades</h1>
+            <h1 className="text-3xl font-bold font-heading">Radar de stock</h1>
           </div>
           <p className="text-slate-400">
-            Zona de compra: productos con reventa activa, rankeados por ROI con precios reales de eBay.
+            Productos con reventa activa y stock real en eBay, ordenados por la mejor oferta de ahora.
           </p>
         </div>
       </div>
@@ -126,7 +78,7 @@ export default function RadarScreen({ onAnalizar }: { onAnalizar: (nombre: strin
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
         {loading && (
           <div className="flex items-center justify-center gap-2 text-slate-500 py-20">
-            <Loader2 className="w-6 h-6 animate-spin" /> Consultando precios reales en eBay…
+            <Loader2 className="w-6 h-6 animate-spin" /> Buscando stock y precios reales en eBay…
           </div>
         )}
 
@@ -138,79 +90,82 @@ export default function RadarScreen({ onAnalizar }: { onAnalizar: (nombre: strin
 
         {data && !loading && (
           <>
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800">
-              <strong>Cómo leerlo:</strong> {data.metrica} {data.aviso}
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-6 text-sm text-amber-800">
+              <strong>Precio futuro:</strong> no se muestra porque aún no hay histórico real para estimarlo (sería inventado).
+              Se activará cuando registremos precios en el tiempo o conectemos Keepa. {data.nota}
             </div>
 
             <div className="space-y-4">
-              {data.productos.map((p, i) => {
-                const cb = confBadge(p.confianza);
-                return (
-                  <div key={p.nombre} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="text-xl font-bold text-slate-300 w-6 text-center shrink-0 pt-0.5">{i + 1}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-slate-900">{p.nombre}</p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-0.5">
-                          <span>{p.categoria}</span>
-                          <span>· {p.marketplace}</span>
-                          <span>· {p.muestras} listados</span>
-                          <span className={`inline-flex items-center gap-1 ${cb.text}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${cb.dot}`} /> {cb.label}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className={`text-2xl font-bold ${roiColor(p.roi)}`}>{p.roi}%</p>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wide">ROI</p>
+              {data.productos.map((p) => (
+                <div key={p.nombre} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900">{p.nombre}</p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 mt-0.5">
+                        <span>{p.categoria}</span>
+                        <span>· {p.stock} con stock</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {new Date(p.comprobado).toLocaleString('es-ES')}
+                        </span>
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-3 gap-3 mt-4">
-                      <div>
-                        <p className="text-[11px] text-slate-400">Compra ~ (P25)</p>
-                        <p className="font-bold text-slate-800">{p.comprar} €</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-400">Vende ~ (hoy)</p>
-                        <p className="font-bold text-slate-800">{p.vender} €</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-slate-400">Beneficio neto</p>
-                        <p className={`font-bold ${roiColor(p.roi)}`}>{p.beneficio} €</p>
-                      </div>
-                    </div>
-
-                    <BarraDistribucion d={p.distribucion} />
-
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={() => onAnalizar(p.query)}
-                        className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
-                      >
-                        Analizar <ArrowRight className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => anadir(p)}
-                        disabled={anadidos[p.nombre]}
-                        className="inline-flex items-center gap-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
-                      >
-                        {anadidos[p.nombre] ? <><Check className="w-4 h-4 text-emerald-600" /> En inventario</> : <><PlusCircle className="w-4 h-4" /> A inventario</>}
-                      </button>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-bold text-slate-900">{p.precio_actual} €</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wide">mejor precio</p>
+                      {p.descuento_pct > 0 && (
+                        <span className="inline-block mt-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          {p.descuento_pct}% bajo el típico ({p.precio_tipico} €)
+                        </span>
+                      )}
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* Tiendas (vendedores) con stock, ordenadas por precio */}
+                  <div className="mt-4 border-t border-slate-100 pt-3 space-y-2">
+                    {p.tiendas.map((t, idx) => (
+                      <div key={idx} className="flex items-center gap-3 text-sm">
+                        <span className="text-slate-400 w-4 shrink-0">{idx + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-slate-700 truncate">{t.tienda}</span>
+                          <span className="text-xs text-slate-400 ml-2">{t.condicion}</span>
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> disponible
+                        </span>
+                        <span className="font-bold text-slate-800 w-20 text-right shrink-0">{t.precio} €</span>
+                        <a
+                          href={t.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0"
+                        >
+                          Comprar <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4">
+                    <button
+                      onClick={() => anadir(p)}
+                      disabled={anadidos[p.nombre]}
+                      className="inline-flex items-center gap-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-60"
+                    >
+                      {anadidos[p.nombre] ? (
+                        <><Check className="w-4 h-4 text-emerald-600" /> En inventario</>
+                      ) : (
+                        <><PlusCircle className="w-4 h-4" /> Seguir en inventario</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {data.sin_datos.length > 0 && (
-              <p className="text-xs text-slate-400 mt-5">Sin datos suficientes ahora: {data.sin_datos.join(', ')}.</p>
-            )}
-
             <div className="mt-6 flex items-center justify-between">
-              <p className="text-xs text-slate-400">Actualizado: {new Date(data.generado).toLocaleString('es-ES')}</p>
+              <p className="text-xs text-slate-400">Comprobado: {new Date(data.generado).toLocaleString('es-ES')}</p>
               <button onClick={cargar} className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700">
-                <RefreshCw className="w-4 h-4" /> Actualizar precios
+                <RefreshCw className="w-4 h-4" /> Comprobar stock ahora
               </button>
             </div>
           </>

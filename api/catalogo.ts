@@ -1,24 +1,22 @@
 // Endpoint: GET /api/catalogo
 //
-// Radar de oportunidades: lista curada de productos con reventa activa,
-// rankeados por margen potencial usando PRECIOS REALES de eBay.
+// Radar: por cada producto de una lista curada, busca en eBay los listados
+// REALES con stock y devuelve las "tiendas" (vendedores) ordenadas por mejor
+// precio, con enlace directo de compra, disponibilidad y fecha de comprobación.
 //
-// Honestidad (principio del proyecto: solo datos reales, nada simulado):
-//  - "comprar" = percentil 25 de los listados reales (un listado barato real).
-//  - "vender"  = mediana de los listados reales (valor de mercado ACTUAL, no una
-//               predicción de futuro: no tenemos histórico para predecir).
-//  - Se aplica un suelo de precio por producto para no contar accesorios/piezas
-//    sueltas que ensucian la búsqueda.
-//  - "confianza" se calcula de datos reales: nº de muestras + dispersión.
+// Principio del proyecto: SOLO datos reales, nada simulado.
+//  - Precio actual = listado real más barato (por encima de un suelo anti-ruido).
+//  - "Tiendas" = vendedores de eBay (marketplace real con muchos vendedores).
+//    Amazon/MediaMarkt/ECI no tienen API gratis y bloquean scraping → no se pueden
+//    incluir de forma real y legal.
+//  - NO hay estimación de precio futuro: requiere histórico real que aún no
+//    tenemos (se conseguiría con un cron de registro diario o con Keepa).
+//  - Producto sin listados con stock => no se muestra.
 
 const EBAY_OAUTH_URL = 'https://api.ebay.com/identity/v1/oauth2/token';
 const EBAY_BROWSE_URL = 'https://api.ebay.com/buy/browse/v1/item_summary/search';
 
-// Comisión fija del 15% (petición del usuario).
-const COMISION_PCT = 0.15;
-
-// Lista curada. `min` = suelo de precio realista para filtrar ruido (piezas
-// sueltas, accesorios, etc.) que aparecen en la búsqueda pero no son el producto.
+// `min` = suelo de precio realista para filtrar accesorios/piezas sueltas.
 const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'LEGO Star Wars Halcón Milenario UCS 75192', categoria: 'LEGO', q: 'LEGO 75192 Millennium Falcon UCS', min: 400 },
   { nombre: 'LEGO Technic Bugatti Chiron 42083', categoria: 'LEGO', q: 'LEGO 42083 Bugatti Chiron', min: 150 },
@@ -34,25 +32,27 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'Dyson Airwrap Complete', categoria: 'Belleza', q: 'Dyson Airwrap Complete', min: 200 },
 ];
 
-function percentil(ordenados: number[], p: number): number {
-  if (ordenados.length === 1) return ordenados[0];
-  const idx = (ordenados.length - 1) * p;
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return ordenados[lo];
-  return ordenados[lo] + (ordenados[hi] - ordenados[lo]) * (idx - lo);
+interface Listado {
+  tienda: string; // vendedor de eBay
+  precio: number;
+  moneda: string;
+  condicion: string;
+  url: string; // enlace directo de compra
+  disponible: boolean;
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
+
+function mediana(ordenados: number[]): number {
+  const m = Math.floor(ordenados.length / 2);
+  return ordenados.length % 2 ? ordenados[m] : (ordenados[m - 1] + ordenados[m]) / 2;
+}
 
 async function getAppToken(clientId: string, clientSecret: string): Promise<string> {
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
   const res = await fetch(EBAY_OAUTH_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Basic ${basic}`,
-    },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: `Basic ${basic}` },
     body: 'grant_type=client_credentials&scope=https%3A%2F%2Fapi.ebay.com%2Foauth%2Fapi_scope',
   });
   const data: any = await res.json();
@@ -60,7 +60,7 @@ async function getAppToken(clientId: string, clientSecret: string): Promise<stri
   return data.access_token;
 }
 
-async function preciosDe(q: string, token: string, marketplace: string): Promise<number[]> {
+async function listadosDe(q: string, token: string, marketplace: string): Promise<Listado[]> {
   const url =
     `${EBAY_BROWSE_URL}?q=${encodeURIComponent(q)}&limit=100` +
     `&filter=${encodeURIComponent('buyingOptions:{FIXED_PRICE}')}`;
@@ -70,16 +70,20 @@ async function preciosDe(q: string, token: string, marketplace: string): Promise
   if (!res.ok) return [];
   const data: any = await res.json();
   return (data.itemSummaries ?? [])
-    .map((it: any) => Number(it?.price?.value))
-    .filter((n: number) => Number.isFinite(n) && n > 0);
-}
-
-// Nivel de confianza a partir de datos reales: muestras + dispersión (P75/P25).
-function confianza(muestras: number, p25: number, p75: number): 'alta' | 'media' | 'baja' {
-  const ratio = p25 > 0 ? p75 / p25 : Infinity;
-  if (muestras >= 25 && ratio <= 1.7) return 'alta';
-  if (muestras >= 12 && ratio <= 2.5) return 'media';
-  return 'baja';
+    .map((it: any): Listado | null => {
+      const precio = Number(it?.price?.value);
+      const url = it?.itemWebUrl;
+      if (!Number.isFinite(precio) || precio <= 0 || !url) return null;
+      return {
+        tienda: it?.seller?.username || 'Vendedor eBay',
+        precio,
+        moneda: it?.price?.currency || 'EUR',
+        condicion: it?.condition || '—',
+        url,
+        disponible: true, // listado activo = comprable
+      };
+    })
+    .filter((x: Listado | null): x is Listado => x !== null);
 }
 
 export default async function handler(req: any, res: any) {
@@ -91,62 +95,55 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'eBay no configurado (faltan EBAY_CLIENT_ID/SECRET).' });
   }
 
+  const comprobado = new Date().toISOString();
+
   try {
     const token = await getAppToken(clientId, clientSecret);
 
     const resultados = await Promise.all(
       SEEDS.map(async (seed) => {
-        const todos = await preciosDe(seed.q, token, marketplace);
-        // Filtramos por el suelo realista para quitar ruido.
-        const precios = todos.filter((n) => n >= seed.min).sort((a, b) => a - b);
-        if (precios.length < 6) {
-          return { nombre: seed.nombre, disponible: false };
-        }
-        const min = r2(precios[0]);
-        const p25 = r2(percentil(precios, 0.25));
-        const mediana = r2(percentil(precios, 0.5));
-        const p75 = r2(percentil(precios, 0.75));
-        const max = r2(precios[precios.length - 1]);
+        const listados = (await listadosDe(seed.q, token, marketplace))
+          .filter((l) => l.precio >= seed.min)
+          .sort((a, b) => a.precio - b.precio);
 
-        const comprar = p25;
-        const vender = mediana;
-        const comisiones = r2(vender * COMISION_PCT);
-        const beneficio = r2(vender - comprar - comisiones);
-        const roi = r2((beneficio / comprar) * 100);
+        if (listados.length < 3) return null; // sin datos/stock real suficiente
+
+        const precios = listados.map((l) => l.precio);
+        const precioActual = r2(precios[0]); // mejor precio disponible ahora
+        const precioTipico = r2(mediana(precios));
+        // Descuento REAL de la mejor oferta vs el precio típico de hoy (no es
+        // una predicción de futuro; es "está barato ahora mismo").
+        const descuento = precioTipico > 0 ? r2(((precioTipico - precioActual) / precioTipico) * 100) : 0;
 
         return {
           nombre: seed.nombre,
           categoria: seed.categoria,
-          marketplace: 'eBay',
-          query: seed.q,
-          disponible: true,
-          muestras: precios.length,
-          distribucion: { min, p25, mediana, p75, max },
-          comprar,
-          vender,
-          comisiones,
-          beneficio,
-          roi,
-          confianza: confianza(precios.length, p25, p75),
+          precio_actual: precioActual,
+          precio_tipico: precioTipico,
+          descuento_pct: descuento,
+          stock: listados.length,
+          comprobado,
+          tiendas: listados.slice(0, 6).map((l) => ({
+            tienda: l.tienda,
+            precio: r2(l.precio),
+            moneda: l.moneda,
+            condicion: l.condicion,
+            disponible: l.disponible,
+            url: l.url,
+          })),
         };
       })
     );
 
     const productos = resultados
-      .filter((r: any) => r.disponible)
-      .sort((a: any, b: any) => b.roi - a.roi);
-    const sinDatos = resultados.filter((r: any) => !r.disponible).map((r: any) => r.nombre);
+      .filter((r: any) => r !== null)
+      .sort((a: any, b: any) => b.descuento_pct - a.descuento_pct);
 
     return res.status(200).json({
-      generado: new Date().toISOString(),
+      generado: comprobado,
       fuente: 'ebay_browse_api',
-      comision_pct: COMISION_PCT * 100,
-      metrica:
-        'ROI = (valor de mercado actual − compra P25 − 15% comisión) / compra. ' +
-        '"Vender" es el precio típico de HOY, no una predicción de futuro.',
-      aviso: 'Datos reales de listados activos en eBay ES. Señal de oportunidad, no garantía.',
+      nota: 'Tiendas = vendedores de eBay ES con stock (listados activos). Precio actual = mejor oferta real ahora. Sin estimación de precio futuro (requiere histórico real).',
       productos,
-      sin_datos: sinDatos,
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Error inesperado' });

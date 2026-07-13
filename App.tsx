@@ -8,13 +8,6 @@ type Tab = 'radar' | 'inventario' | 'analizar';
 
 const App: React.FC = () => {
   const [tab, setTab] = useState<Tab>('radar');
-  const [prefill, setPrefill] = useState('');
-
-  // Desde el Radar: precarga el producto y salta al analizador.
-  const irAAnalizar = (nombre: string) => {
-    setPrefill(nombre);
-    setTab('analizar');
-  };
 
   const tabBtn = (id: Tab, label: string, Icon: typeof Calculator) => (
     <button
@@ -43,9 +36,9 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {tab === 'radar' && <RadarScreen onAnalizar={irAAnalizar} />}
+      {tab === 'radar' && <RadarScreen />}
       {tab === 'inventario' && <InventarioScreen />}
-      {tab === 'analizar' && <FlipprScreen productoInicial={prefill} />}
+      {tab === 'analizar' && <FlipprScreen />}
     </div>
   );
 };

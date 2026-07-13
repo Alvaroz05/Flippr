@@ -8,13 +8,11 @@ interface Valor {
   error?: string;
 }
 
-const COMISION_PCT = 0.15;
-
-// Estado de margen ACTUAL (no es predicción de futuro: no hay histórico todavía).
-function estadoMargen(roi: number) {
-  if (roi >= 20) return { color: 'text-emerald-700', bg: 'bg-emerald-50', dot: '🟢', label: 'Con beneficio' };
-  if (roi >= 0) return { color: 'text-amber-700', bg: 'bg-amber-50', dot: '🟡', label: 'Margen ajustado' };
-  return { color: 'text-red-700', bg: 'bg-red-50', dot: '🔴', label: 'En pérdidas' };
+// Estado de revalorización ACTUAL (no es predicción de futuro: no hay histórico).
+function estadoMargen(pct: number) {
+  if (pct >= 10) return { color: 'text-emerald-700', bg: 'bg-emerald-50', dot: '🟢', label: 'Se ha revalorizado' };
+  if (pct >= 0) return { color: 'text-amber-700', bg: 'bg-amber-50', dot: '🟡', label: 'Estable' };
+  return { color: 'text-red-700', bg: 'bg-red-50', dot: '🔴', label: 'Ha bajado' };
 }
 
 const diasDesde = (iso: string) => {
@@ -132,10 +130,10 @@ export default function InventarioScreen() {
             {items.map((item) => {
               const v = valores[item.id];
               const valor = v?.valorActual;
-              const comisiones = valor != null ? valor * COMISION_PCT : 0;
-              const beneficio = valor != null ? valor - item.precioCompra - comisiones : null;
-              const roi = beneficio != null ? (beneficio / item.precioCompra) * 100 : null;
-              const est = roi != null ? estadoMargen(roi) : null;
+              // Revalorización = valor de mercado actual vs lo que pagaste (sin comisiones).
+              const revalor = valor != null ? valor - item.precioCompra : null;
+              const revalorPct = revalor != null ? (revalor / item.precioCompra) * 100 : null;
+              const est = revalorPct != null ? estadoMargen(revalorPct) : null;
               return (
                 <div key={item.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -164,15 +162,15 @@ export default function InventarioScreen() {
                       )}
                     </div>
                     <div>
-                      <p className="text-[11px] text-slate-400">Beneficio neto</p>
-                      <p className={`font-bold ${beneficio != null && beneficio >= 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                        {beneficio != null ? `${Math.round(beneficio * 100) / 100} €` : '—'}
+                      <p className="text-[11px] text-slate-400">Revalorización</p>
+                      <p className={`font-bold ${revalor != null && revalor >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {revalor != null ? `${revalor >= 0 ? '+' : ''}${Math.round(revalor * 100) / 100} €` : '—'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[11px] text-slate-400">ROI actual</p>
-                      <p className={`font-bold ${roi != null && roi >= 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
-                        {roi != null ? `${Math.round(roi * 10) / 10} %` : '—'}
+                      <p className="text-[11px] text-slate-400">% cambio</p>
+                      <p className={`font-bold ${revalorPct != null && revalorPct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {revalorPct != null ? `${revalorPct >= 0 ? '+' : ''}${Math.round(revalorPct * 10) / 10} %` : '—'}
                       </p>
                     </div>
                     <div className="flex items-end justify-end">
@@ -188,7 +186,7 @@ export default function InventarioScreen() {
         )}
 
         <p className="text-xs text-slate-400 mt-6">
-          El estado (🟢🟡🔴) refleja el <strong>margen actual</strong> (valor de mercado de hoy vs tu compra, comisión 15%),
+          El estado (🟢🟡🔴) refleja la <strong>revalorización actual</strong> (valor de mercado de hoy vs lo que pagaste),
           no una predicción de futuro. Los datos se guardan solo en este navegador.
         </p>
       </div>
