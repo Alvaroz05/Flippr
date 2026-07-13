@@ -21,18 +21,40 @@ const EBAY_OAUTH_URL = 'https://api.ebay.com/identity/v1/oauth2/token';
 const EBAY_BROWSE_URL = 'https://api.ebay.com/buy/browse/v1/item_summary/search';
 
 const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
+  // LEGO
   { nombre: 'LEGO Star Wars Halcón Milenario UCS 75192', categoria: 'LEGO', q: 'LEGO 75192 Millennium Falcon UCS', min: 400 },
   { nombre: 'LEGO Technic Bugatti Chiron 42083', categoria: 'LEGO', q: 'LEGO 42083 Bugatti Chiron', min: 150 },
+  { nombre: 'LEGO Icons Titanic 10294', categoria: 'LEGO', q: 'LEGO 10294 Titanic', min: 400 },
+  { nombre: 'LEGO Nintendo Entertainment System 71374', categoria: 'LEGO', q: 'LEGO 71374 Nintendo NES', min: 150 },
+  { nombre: 'LEGO Icons Ramo de Flores 10280', categoria: 'LEGO', q: 'LEGO 10280 Flower Bouquet', min: 30 },
+  { nombre: 'LEGO Star Wars R2-D2 75308', categoria: 'LEGO', q: 'LEGO 75308 R2-D2', min: 120 },
+  // Zapatillas
   { nombre: 'Nike Dunk Low Panda', categoria: 'Zapatillas', q: 'Nike Dunk Low Panda black white', min: 55 },
   { nombre: 'Air Jordan 1 Retro High OG', categoria: 'Zapatillas', q: 'Air Jordan 1 Retro High OG', min: 90 },
+  { nombre: 'Adidas Yeezy Boost 350 V2', categoria: 'Zapatillas', q: 'Adidas Yeezy Boost 350 V2', min: 120 },
+  { nombre: 'New Balance 550', categoria: 'Zapatillas', q: 'New Balance 550', min: 70 },
+  // Electrónica / audio
   { nombre: 'AirPods Pro 2 (USB-C)', categoria: 'Electrónica', q: 'AirPods Pro 2 USB-C sellados', min: 120 },
-  { nombre: 'Steam Deck OLED 512GB', categoria: 'Consolas', q: 'Steam Deck OLED 512GB', min: 300 },
-  { nombre: 'Zelda Tears of the Kingdom Ed. Coleccionista', categoria: 'Videojuegos', q: 'Zelda Tears of the Kingdom Collector Edition', min: 80 },
-  { nombre: 'Pokémon caja 36 sobres (booster box)', categoria: 'TCG', q: 'Pokemon booster box 36 sobres sellado', min: 80 },
-  { nombre: 'Vinilo Pink Floyd - The Dark Side of the Moon', categoria: 'Vinilos', q: 'Pink Floyd Dark Side of the Moon vinyl LP', min: 15 },
-  { nombre: 'Seiko SKX007 (reloj automático)', categoria: 'Relojes', q: 'Seiko SKX007 automatic', min: 150 },
   { nombre: 'GoPro HERO 12 Black', categoria: 'Electrónica', q: 'GoPro HERO 12 Black', min: 180 },
   { nombre: 'Dyson Airwrap Complete', categoria: 'Belleza', q: 'Dyson Airwrap Complete', min: 200 },
+  { nombre: 'Apple Watch Ultra 2', categoria: 'Electrónica', q: 'Apple Watch Ultra 2 49mm', min: 450 },
+  { nombre: 'Sony WH-1000XM5', categoria: 'Audio', q: 'Sony WH-1000XM5', min: 180 },
+  { nombre: 'Nintendo Switch OLED (consola)', categoria: 'Consolas', q: 'Nintendo Switch OLED consola', min: 180 },
+  // Consolas / videojuegos
+  { nombre: 'Steam Deck OLED 512GB', categoria: 'Consolas', q: 'Steam Deck OLED 512GB', min: 300 },
+  { nombre: 'PlayStation 5 Slim (consola)', categoria: 'Consolas', q: 'PlayStation 5 Slim consola', min: 350 },
+  { nombre: 'Zelda Tears of the Kingdom Ed. Coleccionista', categoria: 'Videojuegos', q: 'Zelda Tears of the Kingdom Collector Edition', min: 80 },
+  // TCG
+  { nombre: 'Pokémon caja 36 sobres (booster box)', categoria: 'TCG', q: 'Pokemon booster box 36 sobres sellado', min: 80 },
+  { nombre: 'Carta Pokémon Charizard (holo)', categoria: 'TCG', q: 'Pokemon Charizard carta holo', min: 30 },
+  { nombre: 'Magic The Gathering caja de sobres', categoria: 'TCG', q: 'Magic The Gathering booster box', min: 80 },
+  // Vinilos
+  { nombre: 'Vinilo Pink Floyd - The Dark Side of the Moon', categoria: 'Vinilos', q: 'Pink Floyd Dark Side of the Moon vinyl LP', min: 15 },
+  { nombre: 'Vinilo The Beatles - Abbey Road', categoria: 'Vinilos', q: 'The Beatles Abbey Road vinyl LP', min: 18 },
+  { nombre: 'Vinilo Daft Punk - Random Access Memories', categoria: 'Vinilos', q: 'Daft Punk Random Access Memories vinyl', min: 25 },
+  // Relojes
+  { nombre: 'Seiko SKX007 (reloj automático)', categoria: 'Relojes', q: 'Seiko SKX007 automatic', min: 150 },
+  { nombre: 'Casio G-Shock', categoria: 'Relojes', q: 'Casio G-Shock reloj', min: 60 },
 ];
 
 interface Listado {
