@@ -1,22 +1,25 @@
 // Endpoint: GET /api/catalogo
 //
-// Radar: por cada producto de una lista curada, busca en eBay los listados
-// REALES con stock y devuelve las "tiendas" (vendedores) ordenadas por mejor
-// precio, con enlace directo de compra, disponibilidad y fecha de comprobación.
+// Por cada producto: listados REALES de eBay con stock (tiendas/vendedores con
+// enlace directo), un Opportunity Score (0-100) y una estimación PROBABILÍSTICA
+// de precio futuro con % de confianza.
 //
-// Principio del proyecto: SOLO datos reales, nada simulado.
-//  - Precio actual = listado real más barato (por encima de un suelo anti-ruido).
-//  - "Tiendas" = vendedores de eBay (marketplace real con muchos vendedores).
-//    Amazon/MediaMarkt/ECI no tienen API gratis y bloquean scraping → no se pueden
-//    incluir de forma real y legal.
-//  - NO hay estimación de precio futuro: requiere histórico real que aún no
-//    tenemos (se conseguiría con un cron de registro diario o con Keepa).
-//  - Producto sin listados con stock => no se muestra.
+// Principio: solo datos reales. La estimación NO es un dato real: es un modelo
+// transparente donde cada factor es una señal real y siempre se muestra la
+// confianza y la etiqueta de "estimación".
+//
+// Factores del Opportunity Score (pesos del usuario):
+//   descuento vs precio habitual .... 30%
+//   escasez (pocas unidades) ........ 20%
+//   nuevo vs reventa ................ 25%
+//   tendencia de búsqueda (Trends) .. 15%  -> NO disponible (Google bloquea
+//                                            servidores: 429). Su peso se
+//                                            redistribuye entre el resto.
+//   liquidez (nº de anuncios) ....... 10%
 
 const EBAY_OAUTH_URL = 'https://api.ebay.com/identity/v1/oauth2/token';
 const EBAY_BROWSE_URL = 'https://api.ebay.com/buy/browse/v1/item_summary/search';
 
-// `min` = suelo de precio realista para filtrar accesorios/piezas sueltas.
 const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'LEGO Star Wars Halcón Milenario UCS 75192', categoria: 'LEGO', q: 'LEGO 75192 Millennium Falcon UCS', min: 400 },
   { nombre: 'LEGO Technic Bugatti Chiron 42083', categoria: 'LEGO', q: 'LEGO 42083 Bugatti Chiron', min: 150 },
@@ -33,20 +36,31 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
 ];
 
 interface Listado {
-  tienda: string; // vendedor de eBay
+  tienda: string;
   precio: number;
   moneda: string;
   condicion: string;
-  url: string; // enlace directo de compra
+  url: string;
   disponible: boolean;
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 
-function mediana(ordenados: number[]): number {
-  const m = Math.floor(ordenados.length / 2);
-  return ordenados.length % 2 ? ordenados[m] : (ordenados[m - 1] + ordenados[m]) / 2;
+function mediana(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  const s = [...nums].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
+function percentil(ordenados: number[], p: number): number {
+  if (ordenados.length <= 1) return ordenados[0] ?? 0;
+  const idx = (ordenados.length - 1) * p;
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  return lo === hi ? ordenados[lo] : ordenados[lo] + (ordenados[hi] - ordenados[lo]) * (idx - lo);
+}
+
+const esNuevo = (c: string) => /new|nuevo|neu|sealed|precintad|sin abrir|a estrenar/i.test(c || '');
 
 async function getAppToken(clientId: string, clientSecret: string): Promise<string> {
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -61,12 +75,8 @@ async function getAppToken(clientId: string, clientSecret: string): Promise<stri
 }
 
 async function listadosDe(q: string, token: string, marketplace: string): Promise<Listado[]> {
-  const url =
-    `${EBAY_BROWSE_URL}?q=${encodeURIComponent(q)}&limit=100` +
-    `&filter=${encodeURIComponent('buyingOptions:{FIXED_PRICE}')}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplace },
-  });
+  const url = `${EBAY_BROWSE_URL}?q=${encodeURIComponent(q)}&limit=100&filter=${encodeURIComponent('buyingOptions:{FIXED_PRICE}')}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplace } });
   if (!res.ok) return [];
   const data: any = await res.json();
   return (data.itemSummaries ?? [])
@@ -80,69 +90,123 @@ async function listadosDe(q: string, token: string, marketplace: string): Promis
         moneda: it?.price?.currency || 'EUR',
         condicion: it?.condition || '—',
         url,
-        disponible: true, // listado activo = comprable
+        disponible: true,
       };
     })
     .filter((x: Listado | null): x is Listado => x !== null);
+}
+
+// Modelo probabilístico sobre señales reales. Devuelve score 0-100, confianza,
+// estimación de rango futuro y el desglose de factores.
+function evaluar(listados: Listado[]) {
+  const precios = listados.map((l) => l.precio).sort((a, b) => a - b);
+  const actual = precios[0];
+  const tipico = mediana(precios);
+  const p25 = percentil(precios, 0.25);
+  const p75 = percentil(precios, 0.75);
+  const stock = precios.length;
+
+  // Factor 1: descuento de la mejor oferta vs precio habitual (máx útil 50%).
+  const descuento = clamp01((tipico - actual) / tipico / 0.5);
+
+  // Factor 2: escasez (pocas unidades disponibles = más potencial).
+  const escasez = clamp01((60 - stock) / 55);
+
+  // Factor 3: nuevo vs reventa (hay margen si el usado está bastante bajo el nuevo).
+  const preciosNuevo = listados.filter((l) => esNuevo(l.condicion)).map((l) => l.precio);
+  const preciosUsado = listados.filter((l) => !esNuevo(l.condicion)).map((l) => l.precio);
+  let nuevoVsReventa = 0;
+  const nuevoDisponible = preciosNuevo.length >= 2 && preciosUsado.length >= 2;
+  if (nuevoDisponible) {
+    const mn = mediana(preciosNuevo), mu = mediana(preciosUsado);
+    nuevoVsReventa = mn > 0 ? clamp01((mn - mu) / mn / 0.6) : 0;
+  }
+
+  // Factor 4: tendencia (Google Trends) — NO disponible desde servidor.
+  const tendenciaDisponible = false;
+
+  // Factor 5: liquidez (mercado activo: suficientes anuncios para vender).
+  const liquidez = clamp01(stock / 30);
+
+  // Pesos del usuario; los no disponibles redistribuyen su peso.
+  const factores = [
+    { clave: 'descuento', nombre: 'Descuento vs habitual', peso: 30, valor: descuento, disponible: true },
+    { clave: 'escasez', nombre: 'Escasez (unidades)', peso: 20, valor: escasez, disponible: true },
+    { clave: 'nuevo_vs_reventa', nombre: 'Nuevo vs reventa', peso: 25, valor: nuevoVsReventa, disponible: nuevoDisponible },
+    { clave: 'tendencia', nombre: 'Tendencia de búsqueda', peso: 15, valor: 0, disponible: tendenciaDisponible },
+    { clave: 'liquidez', nombre: 'Liquidez (anuncios)', peso: 10, valor: liquidez, disponible: true },
+  ];
+  const pesoDisponible = factores.filter((f) => f.disponible).reduce((s, f) => s + f.peso, 0) || 1;
+  const score = Math.round(
+    factores.filter((f) => f.disponible).reduce((s, f) => s + (f.peso / pesoDisponible) * f.valor, 0) * 100
+  );
+
+  const recomendacion = score >= 70 ? 'Comprar' : score >= 45 ? 'Vigilar' : 'Ignorar';
+
+  // Confianza: nº de muestras + dispersión + factores disponibles. Nunca ~100%.
+  const ratio = p25 > 0 ? p75 / p25 : 3;
+  let conf = 45;
+  conf += clamp01(stock / 25) * 25;
+  conf += clamp01((2.5 - ratio) / (2.5 - 1.3)) * 15;
+  conf += nuevoDisponible ? 8 : 0;
+  const confianza = Math.round(Math.min(92, Math.max(40, conf)));
+
+  // Estimación de rango a 3-6 meses (probabilística, NO un dato real).
+  const exp = ((score - 50) / 50) * 0.25; // ±25% según score
+  const band = 0.08 + (1 - confianza / 100) * 0.14; // banda más ancha si baja confianza
+  const est_min = Math.max(0, r2(tipico * (1 + exp - band)));
+  const est_max = r2(tipico * (1 + exp + band));
+
+  return {
+    precio_actual: r2(actual),
+    precio_tipico: r2(tipico),
+    descuento_pct: tipico > 0 ? r2(((tipico - actual) / tipico) * 100) : 0,
+    stock,
+    opportunity_score: score,
+    recomendacion,
+    confianza,
+    estimacion: { min: est_min, max: est_max, horizonte: '3-6 meses' },
+    factores: factores.map((f) => ({ nombre: f.nombre, peso: f.peso, valor: Math.round(f.valor * 100), disponible: f.disponible })),
+  };
 }
 
 export default async function handler(req: any, res: any) {
   const clientId = (process.env.EBAY_CLIENT_ID || '').trim();
   const clientSecret = (process.env.EBAY_CLIENT_SECRET || '').trim();
   const marketplace = process.env.EBAY_MARKETPLACE_ID || 'EBAY_ES';
-
-  if (!clientId || !clientSecret) {
-    return res.status(400).json({ error: 'eBay no configurado (faltan EBAY_CLIENT_ID/SECRET).' });
-  }
+  if (!clientId || !clientSecret) return res.status(400).json({ error: 'eBay no configurado.' });
 
   const comprobado = new Date().toISOString();
-
   try {
     const token = await getAppToken(clientId, clientSecret);
-
     const resultados = await Promise.all(
       SEEDS.map(async (seed) => {
         const listados = (await listadosDe(seed.q, token, marketplace))
           .filter((l) => l.precio >= seed.min)
           .sort((a, b) => a.precio - b.precio);
-
-        if (listados.length < 3) return null; // sin datos/stock real suficiente
-
-        const precios = listados.map((l) => l.precio);
-        const precioActual = r2(precios[0]); // mejor precio disponible ahora
-        const precioTipico = r2(mediana(precios));
-        // Descuento REAL de la mejor oferta vs el precio típico de hoy (no es
-        // una predicción de futuro; es "está barato ahora mismo").
-        const descuento = precioTipico > 0 ? r2(((precioTipico - precioActual) / precioTipico) * 100) : 0;
-
+        if (listados.length < 3) return null;
+        const ev = evaluar(listados);
         return {
           nombre: seed.nombre,
           categoria: seed.categoria,
-          precio_actual: precioActual,
-          precio_tipico: precioTipico,
-          descuento_pct: descuento,
-          stock: listados.length,
           comprobado,
+          ...ev,
           tiendas: listados.slice(0, 6).map((l) => ({
-            tienda: l.tienda,
-            precio: r2(l.precio),
-            moneda: l.moneda,
-            condicion: l.condicion,
-            disponible: l.disponible,
-            url: l.url,
+            tienda: l.tienda, precio: r2(l.precio), moneda: l.moneda,
+            condicion: l.condicion, disponible: l.disponible, url: l.url,
           })),
         };
       })
     );
-
     const productos = resultados
       .filter((r: any) => r !== null)
-      .sort((a: any, b: any) => b.descuento_pct - a.descuento_pct);
+      .sort((a: any, b: any) => b.opportunity_score - a.opportunity_score);
 
     return res.status(200).json({
       generado: comprobado,
       fuente: 'ebay_browse_api',
-      nota: 'Tiendas = vendedores de eBay ES con stock (listados activos). Precio actual = mejor oferta real ahora. Sin estimación de precio futuro (requiere histórico real).',
+      modelo: 'Opportunity Score probabilístico sobre señales reales. La estimación de precio futuro NO es un dato real; se muestra siempre con % de confianza.',
+      trends_disponible: false,
       productos,
     });
   } catch (err: any) {
