@@ -60,9 +60,31 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Falta el parámetro de búsqueda "q".' });
   }
 
-  const clientId = process.env.EBAY_CLIENT_ID;
-  const clientSecret = process.env.EBAY_CLIENT_SECRET;
+  const idRaw = process.env.EBAY_CLIENT_ID || '';
+  const secretRaw = process.env.EBAY_CLIENT_SECRET || '';
+  // Recortamos espacios/saltos de línea por si se colaron al pegar en Vercel.
+  const clientId = idRaw.trim();
+  const clientSecret = secretRaw.trim();
   const marketplace = process.env.EBAY_MARKETPLACE_ID || 'EBAY_ES';
+
+  // Diagnóstico seguro (?debug=1): no expone el secreto, solo entorno y longitudes.
+  if (req.query?.debug) {
+    return res.status(200).json({
+      id_configurada: !!idRaw,
+      secret_configurada: !!secretRaw,
+      entorno_id: clientId.includes('-PRD-')
+        ? 'PRODUCTION'
+        : clientId.includes('-SBX-')
+        ? 'SANDBOX'
+        : 'desconocido',
+      id_prefijo: clientId.slice(0, 14),
+      id_longitud_original: idRaw.length,
+      id_longitud_sin_espacios: clientId.length,
+      secret_longitud_original: secretRaw.length,
+      secret_longitud_sin_espacios: clientSecret.length,
+      marketplace,
+    });
+  }
 
   if (!clientId || !clientSecret) {
     return res.status(400).json({
