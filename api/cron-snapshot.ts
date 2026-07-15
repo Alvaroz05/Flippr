@@ -58,7 +58,7 @@ export default async function handler(req: any, res: any) {
         precio_tipico: p.precio_tipico,
         precio_actual: p.precio_actual,
         stock: p.stock,
-        score: p.opportunity_score,
+        score: p.subscores?.potencial ?? 0,
       };
     }
 

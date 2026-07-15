@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Radar, Loader2, XCircle, RefreshCw, PlusCircle, Check, ExternalLink, Clock, Target, Filter } from 'lucide-react';
+import { Radar, Loader2, XCircle, RefreshCw, PlusCircle, Check, ExternalLink, Clock, Target, Filter, Star } from 'lucide-react';
 import { anadirItem } from '../lib/inventario';
 
 interface Tienda { tienda: string; precio: number; moneda: string; condicion: string; disponible: boolean; url: string; }
-interface Factor { nombre: string; peso: number; valor: number; disponible: boolean; }
+interface Subscores { potencial: number; fiabilidad: number; descuento: number; liquidez: number; }
 interface Producto {
   nombre: string;
   categoria: string;
@@ -14,21 +14,26 @@ interface Producto {
   descuento_pct: number;
   stock: number;
   escasez_nivel: 'facil' | 'limitado' | 'escaso';
-  opportunity_score: number;
-  recomendacion: 'Comprar' | 'Vigilar' | 'Ignorar';
+  feedback_medio: number | null;
+  subscores: Subscores;
   confianza: number;
   estimacion: { objetivo: number; min: number; max: number; horizonte: string };
-  factores: Factor[];
   tiendas: Tienda[];
 }
 interface Data { generado: string; modelo: string; productos: Producto[]; }
 
+type Modo = 'equilibradas' | 'rentabilidad' | 'confiables';
+const MODOS: Record<Modo, { emoji: string; label: string; w: Subscores }> = {
+  equilibradas: { emoji: '⭐', label: 'Equilibradas', w: { potencial: 0.40, fiabilidad: 0.30, descuento: 0.20, liquidez: 0.10 } },
+  rentabilidad: { emoji: '💰', label: 'Máxima rentabilidad', w: { potencial: 0.55, fiabilidad: 0.10, descuento: 0.30, liquidez: 0.05 } },
+  confiables: { emoji: '🛡️', label: 'Más confiables', w: { potencial: 0.20, fiabilidad: 0.50, descuento: 0.15, liquidez: 0.15 } },
+};
+const score = (p: Producto, w: Subscores) =>
+  Math.round(w.potencial * p.subscores.potencial + w.fiabilidad * p.subscores.fiabilidad + w.descuento * p.subscores.descuento + w.liquidez * p.subscores.liquidez);
+
 const scoreColor = (s: number) => (s >= 70 ? 'text-emerald-600' : s >= 45 ? 'text-amber-600' : 'text-slate-400');
-const recoBadge = (r: Producto['recomendacion']) => ({
-  Comprar: 'bg-emerald-50 text-emerald-700',
-  Vigilar: 'bg-amber-50 text-amber-700',
-  Ignorar: 'bg-slate-100 text-slate-500',
-}[r]);
+const reco = (s: number) => (s >= 70 ? 'Comprar' : s >= 45 ? 'Vigilar' : 'Ignorar');
+const recoBadge = (s: number) => (s >= 70 ? 'bg-emerald-50 text-emerald-700' : s >= 45 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500');
 const escasez = (n: Producto['escasez_nivel']) => ({
   facil: { dot: '🟢', label: 'Fácil de conseguir', text: 'text-emerald-700' },
   limitado: { dot: '🟡', label: 'Stock limitado', text: 'text-amber-700' },
@@ -41,9 +46,15 @@ function antiguedad(iso: string): string {
   let m = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
   if (m < 0) m = 0;
   const y = Math.floor(m / 12), mm = m % 12;
-  if (y >= 1) return `hace ${y} año${y > 1 ? 's' : ''}`;
-  return `hace ${mm} mes${mm !== 1 ? 'es' : ''}`;
+  return y >= 1 ? `hace ${y} año${y > 1 ? 's' : ''}` : `hace ${mm} mes${mm !== 1 ? 'es' : ''}`;
 }
+
+const FACTORES: { clave: keyof Subscores; nombre: string }[] = [
+  { clave: 'potencial', nombre: 'Potencial de revalorización' },
+  { clave: 'fiabilidad', nombre: 'Fiabilidad (vendedor + estado)' },
+  { clave: 'descuento', nombre: 'Descuento vs mercado' },
+  { clave: 'liquidez', nombre: 'Liquidez' },
+];
 
 export default function RadarScreen() {
   const [loading, setLoading] = useState(true);
@@ -53,11 +64,16 @@ export default function RadarScreen() {
   const [abierto, setAbierto] = useState<Record<string, boolean>>({});
   const [pagina, setPagina] = useState(0);
   const [minScore, setMinScore] = useState(0);
+  const [modo, setModo] = useState<Modo>('equilibradas');
 
   const POR_PAGINA = 5;
-  const productos = (data?.productos ?? []).filter((p) => p.opportunity_score >= minScore);
-  const totalPaginas = Math.max(1, Math.ceil(productos.length / POR_PAGINA));
-  const visibles = productos.slice(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA);
+  const w = MODOS[modo].w;
+  const rankeados = (data?.productos ?? [])
+    .map((p) => ({ p, s: score(p, w) }))
+    .filter((x) => x.s >= minScore)
+    .sort((a, b) => b.s - a.s);
+  const totalPaginas = Math.max(1, Math.ceil(rankeados.length / POR_PAGINA));
+  const visibles = rankeados.slice(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA);
 
   const cargar = async () => {
     setLoading(true);
@@ -89,7 +105,7 @@ export default function RadarScreen() {
             <Radar className="w-7 h-7 text-primary-500" />
             <h1 className="text-3xl font-bold font-heading">Radar de oportunidades</h1>
           </div>
-          <p className="text-slate-400">Productos con stock real en eBay, con Opportunity Score y precio objetivo estimado.</p>
+          <p className="text-slate-400">Combina potencial, fiabilidad, descuento y liquidez con datos reales de eBay.</p>
         </div>
       </div>
 
@@ -107,23 +123,36 @@ export default function RadarScreen() {
 
         {data && !loading && (
           <>
-            {/* Filtro por rentabilidad mínima */}
+            {/* Selector de modo */}
+            <div className="mb-4">
+              <p className="text-xs text-slate-500 mb-2">Modo de búsqueda:</p>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(MODOS) as Modo[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => { setModo(m); setPagina(0); }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${modo === m ? 'bg-primary-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <span>{MODOS[m].emoji}</span> {MODOS[m].label}
+                    {m === 'equilibradas' && <span className="text-[10px] opacity-70">(recom.)</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por score mínimo */}
             <div className="flex items-center gap-2 mb-5 text-sm">
               <Filter className="w-4 h-4 text-slate-400" />
-              <span className="text-slate-500">Rentabilidad mínima:</span>
+              <span className="text-slate-500">Puntuación mínima:</span>
               {[0, 60, 70, 80].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => { setMinScore(v); setPagina(0); }}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${minScore === v ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  {v === 0 ? 'Todos' : `Score ≥ ${v}`}
+                <button key={v} onClick={() => { setMinScore(v); setPagina(0); }} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${minScore === v ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  {v === 0 ? 'Todas' : `≥ ${v}`}
                 </button>
               ))}
             </div>
 
             <div className="space-y-4">
-              {visibles.map((p) => {
+              {visibles.map(({ p, s }) => {
                 const esc = escasez(p.escasez_nivel);
                 return (
                   <div key={p.nombre} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -134,13 +163,13 @@ export default function RadarScreen() {
                           <span>{p.categoria}</span>
                           <span className={`inline-flex items-center gap-1 ${esc.text}`}>{esc.dot} {esc.label}</span>
                           {p.lanzamiento && <span>· Lanzado {antiguedad(p.lanzamiento)}</span>}
-                          <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(p.comprobado).toLocaleDateString('es-ES')}</span>
+                          {p.feedback_medio != null && <span className="inline-flex items-center gap-1"><Star className="w-3 h-3" /> {p.feedback_medio}% vendedor</span>}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className={`text-3xl font-bold leading-none ${scoreColor(p.opportunity_score)}`}>{p.opportunity_score}</p>
+                        <p className={`text-3xl font-bold leading-none ${scoreColor(s)}`}>{s}</p>
                         <p className="text-[10px] text-slate-400 uppercase tracking-wide">score /100</p>
-                        <span className={`inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${recoBadge(p.recomendacion)}`}>{p.recomendacion}</span>
+                        <span className={`inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${recoBadge(s)}`}>{reco(s)}</span>
                       </div>
                     </div>
 
@@ -150,7 +179,6 @@ export default function RadarScreen() {
                       <div><p className="text-[11px] text-slate-400">Bajo el típico</p><p className="font-bold text-emerald-600">{p.descuento_pct > 0 ? `${p.descuento_pct}%` : '—'}</p></div>
                     </div>
 
-                    {/* Precio objetivo + rango + barra de fiabilidad */}
                     <div className="mt-4 bg-slate-50 border border-slate-100 rounded-xl p-3">
                       <div className="flex items-center gap-2">
                         <Target className="w-4 h-4 text-primary-500 shrink-0" />
@@ -168,19 +196,23 @@ export default function RadarScreen() {
                     </div>
 
                     <button onClick={() => setAbierto((a) => ({ ...a, [p.nombre]: !a[p.nombre] }))} className="text-xs font-semibold text-primary-600 hover:text-primary-700 mt-3">
-                      {abierto[p.nombre] ? 'Ocultar' : 'Ver'} desglose del score
+                      {abierto[p.nombre] ? 'Ocultar' : 'Ver'} desglose ({MODOS[modo].emoji} {MODOS[modo].label})
                     </button>
                     {abierto[p.nombre] && (
                       <div className="mt-2 space-y-1.5">
-                        {p.factores.map((f) => (
-                          <div key={f.nombre} className="flex items-center gap-2 text-xs">
-                            <span className="w-40 shrink-0 text-slate-500">{f.nombre} <span className="text-slate-300">({f.peso}%)</span></span>
-                            <div className="flex-1 h-1.5 rounded-full bg-slate-100">
-                              {f.disponible && <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${f.valor}%` }} />}
+                        {FACTORES.map((f) => {
+                          const val = p.subscores[f.clave];
+                          const peso = Math.round(w[f.clave] * 100);
+                          return (
+                            <div key={f.clave} className="flex items-center gap-2 text-xs">
+                              <span className="w-44 shrink-0 text-slate-500">{f.nombre} <span className="text-slate-300">({peso}%)</span></span>
+                              <div className="flex-1 h-1.5 rounded-full bg-slate-100">
+                                <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${val}%` }} />
+                              </div>
+                              <span className="w-14 text-right shrink-0 text-slate-500">{val}/100</span>
                             </div>
-                            <span className="w-16 text-right shrink-0 text-slate-500">{f.disponible ? `${f.valor}/100` : 'n/d'}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -209,21 +241,15 @@ export default function RadarScreen() {
                   </div>
                 );
               })}
-              {visibles.length === 0 && (
-                <p className="text-center text-slate-400 py-10 text-sm">Ningún producto supera ese filtro ahora mismo.</p>
-              )}
+              {visibles.length === 0 && <p className="text-center text-slate-400 py-10 text-sm">Ningún producto supera ese filtro en este modo.</p>}
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
               <p className="text-xs text-slate-400">
-                {productos.length > 0 ? `Mostrando ${pagina * POR_PAGINA + 1}–${Math.min((pagina + 1) * POR_PAGINA, productos.length)} de ${productos.length}` : ''}
+                {rankeados.length > 0 ? `Mostrando ${pagina * POR_PAGINA + 1}–${Math.min((pagina + 1) * POR_PAGINA, rankeados.length)} de ${rankeados.length}` : ''}
               </p>
               <div className="flex items-center gap-4">
-                <button
-                  onClick={() => { setPagina((p) => (p + 1) % totalPaginas); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                  disabled={productos.length <= POR_PAGINA}
-                  className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
-                >
+                <button onClick={() => { setPagina((p) => (p + 1) % totalPaginas); window.scrollTo({ top: 0, behavior: 'smooth' }); }} disabled={rankeados.length <= POR_PAGINA} className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
                   <RefreshCw className="w-4 h-4" /> Ver otros 5
                 </button>
                 <button onClick={cargar} className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-700">Recalcular precios</button>

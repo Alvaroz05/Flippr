@@ -110,6 +110,7 @@ interface Listado {
   condicion: string;
   url: string;
   disponible: boolean;
+  feedbackPct: number | null; // valoración del vendedor (eBay), 0-100
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -152,6 +153,7 @@ async function listadosDe(q: string, token: string, marketplace: string): Promis
       const precio = Number(it?.price?.value);
       const url = it?.itemWebUrl;
       if (!Number.isFinite(precio) || precio <= 0 || !url) return null;
+      const fb = Number(it?.seller?.feedbackPercentage);
       return {
         tienda: it?.seller?.username || 'Vendedor eBay',
         precio,
@@ -159,74 +161,73 @@ async function listadosDe(q: string, token: string, marketplace: string): Promis
         condicion: it?.condition || '—',
         url,
         disponible: true,
+        feedbackPct: Number.isFinite(fb) ? fb : null,
       };
     })
     .filter((x: Listado | null): x is Listado => x !== null);
 }
 
-// Modelo probabilístico sobre señales reales. Devuelve score 0-100, confianza,
-// estimación de rango futuro y el desglose de factores.
-function evaluar(listados: Listado[]) {
+// Modelo de 4 factores sobre señales reales. Devuelve las sub-puntuaciones
+// (0-100) para que el frontend calcule el score según el MODO elegido
+// (rentabilidad / confiabilidad / equilibrado). Todo con datos reales.
+function evaluar(listados: Listado[], antiguedadAnios: number | null) {
   const precios = listados.map((l) => l.precio).sort((a, b) => a - b);
   const actual = precios[0];
   const tipico = mediana(precios);
   const p25 = percentil(precios, 0.25);
   const p75 = percentil(precios, 0.75);
   const stock = precios.length;
+  const ratio = p25 > 0 ? p75 / p25 : 3;
+  const consistencia = clamp01((2.5 - ratio) / (2.5 - 1.3)); // precios tight = fiable
 
-  // Factor 1: descuento de la mejor oferta vs precio habitual (máx útil 50%).
-  const descuento = clamp01((tipico - actual) / tipico / 0.5);
-
-  // Factor 2: escasez (pocas unidades disponibles = más potencial).
-  const escasez = clamp01((60 - stock) / 55);
-
-  // Factor 3: nuevo vs reventa (hay margen si el usado está bastante bajo el nuevo).
+  // Nuevo vs usado (estado real de los anuncios).
   const preciosNuevo = listados.filter((l) => esNuevo(l.condicion)).map((l) => l.precio);
   const preciosUsado = listados.filter((l) => !esNuevo(l.condicion)).map((l) => l.precio);
-  let nuevoVsReventa = 0;
   const nuevoDisponible = preciosNuevo.length >= 2 && preciosUsado.length >= 2;
+  let nuevoVsReventa = 0;
   if (nuevoDisponible) {
     const mn = mediana(preciosNuevo), mu = mediana(preciosUsado);
     nuevoVsReventa = mn > 0 ? clamp01((mn - mu) / mn / 0.6) : 0;
   }
+  const fracNuevo = clamp01(preciosNuevo.length / stock);
 
-  // Factor 4: tendencia (Google Trends) — NO disponible desde servidor.
-  const tendenciaDisponible = false;
+  // Valoración media real del vendedor (eBay feedbackPercentage).
+  const fbs = listados.map((l) => l.feedbackPct).filter((x): x is number => x != null && Number.isFinite(x));
+  const fbAvg = fbs.length ? fbs.reduce((s, x) => s + x, 0) / fbs.length : null;
+  const feedbackNorm = fbAvg != null ? clamp01((fbAvg - 90) / 9) : 0.6; // 90%→0, 99%+→1
 
-  // Factor 5: liquidez (mercado activo: suficientes anuncios para vender).
+  // ---- SUB-PUNTUACIONES (0..1) ----
+  // Descuento vs precio de mercado (mejor oferta frente al típico; máx útil 50%).
+  const descuento = clamp01((tipico - actual) / tipico / 0.5);
+  // Liquidez: mercado activo (suficientes anuncios para revender).
   const liquidez = clamp01(stock / 30);
+  // Fiabilidad de la oportunidad: vendedor + estado + consistencia de precios.
+  const fiabilidad = 0.55 * feedbackNorm + 0.25 * fracNuevo + 0.20 * consistencia;
+  // Potencial de revalorización: escasez + antigüedad + hueco nuevo/reventa.
+  const escasez = clamp01((60 - stock) / 55);
+  const antNorm = antiguedadAnios != null ? clamp01(antiguedadAnios / 6) : 0.4;
+  const potencial = nuevoDisponible
+    ? 0.40 * escasez + 0.35 * antNorm + 0.25 * nuevoVsReventa
+    : 0.55 * escasez + 0.45 * antNorm;
 
-  // Pesos del usuario; los no disponibles redistribuyen su peso.
-  const factores = [
-    { clave: 'descuento', nombre: 'Descuento vs habitual', peso: 30, valor: descuento, disponible: true },
-    { clave: 'escasez', nombre: 'Escasez (unidades)', peso: 20, valor: escasez, disponible: true },
-    { clave: 'nuevo_vs_reventa', nombre: 'Nuevo vs reventa', peso: 25, valor: nuevoVsReventa, disponible: nuevoDisponible },
-    { clave: 'tendencia', nombre: 'Tendencia de búsqueda', peso: 15, valor: 0, disponible: tendenciaDisponible },
-    { clave: 'liquidez', nombre: 'Liquidez (anuncios)', peso: 10, valor: liquidez, disponible: true },
-  ];
-  const pesoDisponible = factores.filter((f) => f.disponible).reduce((s, f) => s + f.peso, 0) || 1;
-  const score = Math.round(
-    factores.filter((f) => f.disponible).reduce((s, f) => s + (f.peso / pesoDisponible) * f.valor, 0) * 100
-  );
+  const subscores = {
+    potencial: Math.round(potencial * 100),
+    fiabilidad: Math.round(fiabilidad * 100),
+    descuento: Math.round(descuento * 100),
+    liquidez: Math.round(liquidez * 100),
+  };
 
-  const recomendacion = score >= 70 ? 'Comprar' : score >= 45 ? 'Vigilar' : 'Ignorar';
-
-  // Confianza: nº de muestras + dispersión + factores disponibles. Nunca ~100%.
-  const ratio = p25 > 0 ? p75 / p25 : 3;
-  let conf = 45;
-  conf += clamp01(stock / 25) * 25;
-  conf += clamp01((2.5 - ratio) / (2.5 - 1.3)) * 15;
-  conf += nuevoDisponible ? 8 : 0;
+  // Confianza = calidad del dato (independiente del modo). Nunca ~100%.
+  let conf = 40 + clamp01(stock / 25) * 25 + consistencia * 15 + (fbAvg != null ? 10 : 0) + (nuevoDisponible ? 5 : 0);
   const confianza = Math.round(Math.min(92, Math.max(40, conf)));
 
-  // Estimación de rango a 3-6 meses (probabilística, NO un dato real).
-  const exp = ((score - 50) / 50) * 0.25; // ±25% según score
-  const band = 0.08 + (1 - confianza / 100) * 0.14; // banda más ancha si baja confianza
-  const objetivo = r2(tipico * (1 + exp)); // precio objetivo estimado (punto central)
+  // Estimación de rango (basada en el potencial de revalorización).
+  const exp = potencial * 0.30; // 0..30% de subida según potencial
+  const band = 0.08 + (1 - confianza / 100) * 0.14;
+  const objetivo = r2(tipico * (1 + exp));
   const est_min = Math.max(0, r2(tipico * (1 + exp - band)));
   const est_max = r2(tipico * (1 + exp + band));
 
-  // Índice de escasez a partir del nº de anuncios reales con stock.
   const escasez_nivel = stock >= 40 ? 'facil' : stock >= 12 ? 'limitado' : 'escaso';
 
   return {
@@ -235,11 +236,10 @@ function evaluar(listados: Listado[]) {
     descuento_pct: tipico > 0 ? r2(((tipico - actual) / tipico) * 100) : 0,
     stock,
     escasez_nivel,
-    opportunity_score: score,
-    recomendacion,
+    feedback_medio: fbAvg != null ? r2(fbAvg) : null,
+    subscores,
     confianza,
     estimacion: { objetivo, min: est_min, max: est_max, horizonte: '3-6 meses' },
-    factores: factores.map((f) => ({ nombre: f.nombre, peso: f.peso, valor: Math.round(f.valor * 100), disponible: f.disponible })),
   };
 }
 
@@ -258,11 +258,13 @@ export default async function handler(req: any, res: any) {
           .filter((l) => l.precio >= seed.min)
           .sort((a, b) => a.precio - b.precio);
         if (listados.length < 3) return null;
-        const ev = evaluar(listados);
+        const lz = LANZAMIENTOS[seed.nombre];
+        const antiguedad = lz ? (Date.now() - new Date(lz).getTime()) / (365.25 * 864e5) : null;
+        const ev = evaluar(listados, antiguedad);
         return {
           nombre: seed.nombre,
           categoria: seed.categoria,
-          lanzamiento: LANZAMIENTOS[seed.nombre] ?? null,
+          lanzamiento: lz ?? null,
           comprobado,
           ...ev,
           tiendas: listados.slice(0, 6).map((l) => ({
@@ -272,15 +274,16 @@ export default async function handler(req: any, res: any) {
         };
       })
     );
+    // El score final se calcula en el frontend según el modo; ordenamos por
+    // potencial como orden por defecto razonable.
     const productos = resultados
       .filter((r: any) => r !== null)
-      .sort((a: any, b: any) => b.opportunity_score - a.opportunity_score);
+      .sort((a: any, b: any) => b.subscores.potencial - a.subscores.potencial);
 
     return res.status(200).json({
       generado: comprobado,
       fuente: 'ebay_browse_api',
-      modelo: 'Opportunity Score probabilístico sobre señales reales. La estimación de precio futuro NO es un dato real; se muestra siempre con % de confianza.',
-      trends_disponible: false,
+      modelo: 'Modelo de 4 factores (potencial, fiabilidad, descuento, liquidez) sobre señales reales de eBay. El score final depende del modo de búsqueda. La estimación no es un dato real.',
       productos,
     });
   } catch (err: any) {
