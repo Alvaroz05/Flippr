@@ -69,6 +69,14 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'LEGO Star Wars AT-AT 75313', categoria: 'LEGO', q: 'LEGO 75313 AT-AT', min: 120 },
   { nombre: 'Vinilo Fleetwood Mac - Rumours', categoria: 'Vinilos', q: 'Fleetwood Mac Rumours vinyl LP', min: 18 },
   { nombre: 'Garmin Forerunner (reloj GPS)', categoria: 'Relojes', q: 'Garmin Forerunner reloj GPS', min: 120 },
+  // --- Sneakers de alto potencial de reventa (colaboraciones / hype) ---
+  { nombre: 'New Balance 550 Aimé Leon Dore', categoria: 'Zapatillas', q: 'New Balance 550 Aime Leon Dore', min: 130 },
+  { nombre: 'New Balance 9060 Joe Freshgoods', categoria: 'Zapatillas', q: 'New Balance 9060 Joe Freshgoods', min: 140 },
+  { nombre: 'New Balance 990 Action Bronson', categoria: 'Zapatillas', q: 'New Balance 990 Action Bronson', min: 150 },
+  { nombre: 'Asics x JJJJound (Gel-Kayano/Gel-1130)', categoria: 'Zapatillas', q: 'Asics JJJJound', min: 120 },
+  { nombre: 'Asics x Kiko Kostadinov', categoria: 'Zapatillas', q: 'Asics Kiko Kostadinov', min: 150 },
+  { nombre: 'Salomon XT-6', categoria: 'Zapatillas', q: 'Salomon XT-6', min: 90 },
+  { nombre: 'Salomon ACS Pro', categoria: 'Zapatillas', q: 'Salomon ACS Pro', min: 120 },
 ];
 
 // Fechas de lanzamiento reales (dato público) por producto. Las que no están
