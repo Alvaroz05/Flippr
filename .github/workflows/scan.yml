@@ -1,0 +1,21 @@
+name: Flippr scan
+
+# Dispara el escaneo cada 30 minutos (Vercel Hobby solo permite cron diario,
+# así que usamos GitHub Actions, gratis en repos públicos). También se puede
+# lanzar a mano desde la pestaña Actions (workflow_dispatch).
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/scan
+        run: |
+          curl -sS -m 90 "https://flippr-eta.vercel.app/api/scan" \
+            ${SCAN_SECRET:+-H "Authorization: Bearer $SCAN_SECRET"} \
+            -w "\nHTTP %{http_code}\n"
+        env:
+          SCAN_SECRET: ${{ secrets.SCAN_SECRET }}
