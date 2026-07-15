@@ -37,15 +37,17 @@ async function kvSet(key: string, value: unknown): Promise<void> {
 
 // Categorías a escanear. `max` = precio por debajo del cual un anuncio nuevo se
 // considera "chollo" digno de avisar.
-const SCAN: { categoria: string; q: string; max: number }[] = [
-  { categoria: 'LEGO Star Wars UCS', q: 'LEGO 75192 Millennium Falcon UCS', max: 550 },
-  { categoria: 'LEGO Icons', q: 'LEGO Icons 10294 OR 10280 OR 10311', max: 60 },
-  { categoria: 'Zapatillas', q: 'Nike Dunk Low OR Air Jordan zapatillas', max: 90 },
-  { categoria: 'Pokémon sellado', q: 'Pokemon booster box OR ETB sellado', max: 90 },
-  { categoria: 'Vinilos', q: 'vinilo LP Pink Floyd OR Beatles', max: 30 },
-  { categoria: 'Consolas', q: 'Steam Deck OLED OR Nintendo Switch OLED', max: 350 },
-  { categoria: 'Apple', q: 'AirPods Pro 2 OR Apple Watch Ultra', max: 250 },
-  { categoria: 'Relojes', q: 'Seiko automatic OR Casio G-Shock reloj', max: 120 },
+// `min`-`max` = banda de precio realista. Solo cuentan anuncios dentro de la
+// banda (evita accesorios baratos); se avisa de los nuevos por debajo de `max`.
+const SCAN: { categoria: string; q: string; min: number; max: number }[] = [
+  { categoria: 'LEGO Star Wars UCS 75192', q: 'LEGO 75192 Millennium Falcon UCS', min: 400, max: 750 },
+  { categoria: 'LEGO Icons Titanic', q: 'LEGO 10294 Titanic', min: 400, max: 600 },
+  { categoria: 'Nike Dunk Low Panda', q: 'Nike Dunk Low Panda', min: 55, max: 90 },
+  { categoria: 'Pokémon booster box', q: 'Pokemon booster box sellado', min: 80, max: 130 },
+  { categoria: 'Vinilo Pink Floyd DSOTM', q: 'Pink Floyd Dark Side of the Moon vinyl LP', min: 15, max: 30 },
+  { categoria: 'Steam Deck OLED', q: 'Steam Deck OLED 512GB', min: 300, max: 430 },
+  { categoria: 'AirPods Pro 2', q: 'AirPods Pro 2 USB-C', min: 120, max: 180 },
+  { categoria: 'Seiko SKX007', q: 'Seiko SKX007 automatic', min: 150, max: 230 },
 ];
 
 interface Item { id: string; titulo: string; precio: number; url: string; }
@@ -97,19 +99,27 @@ export default async function handler(req: any, res: any) {
     const porCategoria: Record<string, number> = {};
     const nuevasNovedades: Novedad[] = [];
 
+    // ?reset=1 limpia el estado y las novedades (para empezar de cero limpio).
+    if (req.query?.reset) {
+      for (const s of SCAN) await kvSet(`flippr:scan:${s.categoria}`, { ids: [] });
+      await kvSet('flippr:novedades', []);
+    }
+
     for (const s of SCAN) {
-      const items = await buscar(s.q, token, marketplace);
+      // Solo anuncios dentro de la banda de precio realista (fuera ruido).
+      const items = (await buscar(s.q, token, marketplace)).filter((i) => i.precio >= s.min && i.precio <= s.max);
       const idsActuales = items.map((i) => i.id);
       const prev = (await kvGet<{ ids: string[] }>(`flippr:scan:${s.categoria}`)) || { ids: [] };
+      const primeraVez = prev.ids.length === 0;
       const set = new Set(prev.ids);
       // Anuncios NUEVOS = ids que no estaban en el escaneo anterior.
       const nuevos = items.filter((i) => !set.has(i.id));
-      porCategoria[s.categoria] = nuevos.length;
-      nuevosTotal += nuevos.length;
+      porCategoria[s.categoria] = primeraVez ? 0 : nuevos.length;
+      if (!primeraVez) nuevosTotal += nuevos.length;
 
-      // Solo registramos como "chollo" los nuevos por debajo del umbral.
-      for (const n of nuevos.filter((i) => i.precio <= s.max)) {
-        nuevasNovedades.push({ ...n, categoria: s.categoria, visto: ahora });
+      // La primera vez solo sembramos la base; no inundamos de "novedades".
+      if (!primeraVez) {
+        for (const n of nuevos) nuevasNovedades.push({ ...n, categoria: s.categoria, visto: ahora });
       }
 
       // Guardamos el estado actual (cap 300 ids por categoría).
