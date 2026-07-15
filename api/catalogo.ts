@@ -45,8 +45,6 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'PlayStation 5 Slim (consola)', categoria: 'Consolas', q: 'PlayStation 5 Slim consola', min: 350 },
   { nombre: 'Zelda Tears of the Kingdom Ed. Coleccionista', categoria: 'Videojuegos', q: 'Zelda Tears of the Kingdom Collector Edition', min: 80 },
   // TCG
-  { nombre: 'Pokémon caja 36 sobres (booster box)', categoria: 'TCG', q: 'Pokemon booster box 36 sobres sellado', min: 80 },
-  { nombre: 'Carta Pokémon Charizard (holo)', categoria: 'TCG', q: 'Pokemon Charizard carta holo', min: 30 },
   { nombre: 'Magic The Gathering caja de sobres', categoria: 'TCG', q: 'Magic The Gathering booster box', min: 80 },
   // Vinilos
   { nombre: 'Vinilo Pink Floyd - The Dark Side of the Moon', categoria: 'Vinilos', q: 'Pink Floyd Dark Side of the Moon vinyl LP', min: 15 },
@@ -63,7 +61,6 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'Apple Watch Series 9', categoria: 'Electrónica', q: 'Apple Watch Series 9 45mm', min: 250 },
   { nombre: 'Kindle Paperwhite', categoria: 'Electrónica', q: 'Kindle Paperwhite', min: 70 },
   { nombre: 'Nintendo Switch Lite (consola)', categoria: 'Consolas', q: 'Nintendo Switch Lite consola', min: 100 },
-  { nombre: 'Pokémon Elite Trainer Box (ETB)', categoria: 'TCG', q: 'Pokemon Elite Trainer Box sellado', min: 30 },
   { nombre: 'LEGO Icons Bonsái 10281', categoria: 'LEGO', q: 'LEGO 10281 Bonsai Tree', min: 30 },
   { nombre: 'LEGO Botánica Orquídea 10311', categoria: 'LEGO', q: 'LEGO 10311 Orchid', min: 25 },
   { nombre: 'LEGO Star Wars AT-AT 75313', categoria: 'LEGO', q: 'LEGO 75313 AT-AT', min: 120 },

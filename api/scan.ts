@@ -43,7 +43,6 @@ const SCAN: { categoria: string; q: string; min: number; max: number }[] = [
   { categoria: 'LEGO Star Wars UCS 75192', q: 'LEGO 75192 Millennium Falcon UCS', min: 400, max: 750 },
   { categoria: 'LEGO Icons Titanic', q: 'LEGO 10294 Titanic', min: 400, max: 600 },
   { categoria: 'Nike Dunk Low Panda', q: 'Nike Dunk Low Panda', min: 55, max: 90 },
-  { categoria: 'Pokémon booster box', q: 'Pokemon booster box sellado', min: 80, max: 130 },
   { categoria: 'Vinilo Pink Floyd DSOTM', q: 'Pink Floyd Dark Side of the Moon vinyl LP', min: 15, max: 30 },
   { categoria: 'Steam Deck OLED', q: 'Steam Deck OLED 512GB', min: 300, max: 430 },
   { categoria: 'AirPods Pro 2', q: 'AirPods Pro 2 USB-C', min: 120, max: 180 },
