@@ -74,6 +74,61 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'Asics x Kiko Kostadinov', categoria: 'Zapatillas', q: 'Asics Kiko Kostadinov', min: 150 },
   { nombre: 'Salomon XT-6', categoria: 'Zapatillas', q: 'Salomon XT-6', min: 90 },
   { nombre: 'Salomon ACS Pro', categoria: 'Zapatillas', q: 'Salomon ACS Pro', min: 120 },
+
+  // ===== AMPLIACIÓN =====
+  // LEGO premium
+  { nombre: 'LEGO Icons Coliseo 10276', categoria: 'LEGO', q: 'LEGO 10276 Colosseum', min: 300 },
+  { nombre: 'LEGO Star Wars UCS Star Destroyer 75252', categoria: 'LEGO', q: 'LEGO 75252 Imperial Star Destroyer UCS', min: 500 },
+  { nombre: 'LEGO Star Wars Death Star 75159', categoria: 'LEGO', q: 'LEGO 75159 Death Star', min: 300 },
+  { nombre: 'LEGO Icons McLaren F1 42141', categoria: 'LEGO', q: 'LEGO 42141 McLaren F1', min: 150 },
+  { nombre: 'LEGO Icons Concorde 10318', categoria: 'LEGO', q: 'LEGO 10318 Concorde', min: 130 },
+  { nombre: 'LEGO Ideas Máquina de Escribir 21327', categoria: 'LEGO', q: 'LEGO 21327 Typewriter', min: 120 },
+  { nombre: 'LEGO Icons Optimus Prime 10302', categoria: 'LEGO', q: 'LEGO 10302 Optimus Prime', min: 90 },
+  { nombre: 'LEGO Marvel Guantelete Infinito 76191', categoria: 'LEGO', q: 'LEGO 76191 Infinity Gauntlet', min: 60 },
+  { nombre: 'LEGO Icons Orquídea 10311', categoria: 'LEGO', q: 'LEGO 10311 Orchid', min: 25 },
+  // Sneakers extra
+  { nombre: 'Air Jordan 1 High Chicago', categoria: 'Zapatillas', q: 'Air Jordan 1 High Chicago', min: 150 },
+  { nombre: 'Nike SB Dunk', categoria: 'Zapatillas', q: 'Nike SB Dunk', min: 100 },
+  { nombre: 'New Balance 2002R', categoria: 'Zapatillas', q: 'New Balance 2002R', min: 90 },
+  { nombre: 'Adidas Gazelle', categoria: 'Zapatillas', q: 'Adidas Gazelle', min: 55 },
+  { nombre: 'Nike Air Max 1', categoria: 'Zapatillas', q: 'Nike Air Max 1', min: 80 },
+  { nombre: 'Asics Gel-Kayano 14', categoria: 'Zapatillas', q: 'Asics Gel-Kayano 14', min: 90 },
+  { nombre: 'Salomon Speedcross', categoria: 'Zapatillas', q: 'Salomon Speedcross', min: 70 },
+  // Electrónica
+  { nombre: 'iPhone 15 Pro', categoria: 'Electrónica', q: 'iPhone 15 Pro', min: 600 },
+  { nombre: 'iPad Air (M2)', categoria: 'Electrónica', q: 'iPad Air M2', min: 400 },
+  { nombre: 'Sony PlayStation VR2', categoria: 'Electrónica', q: 'PlayStation VR2', min: 250 },
+  { nombre: 'Bose QuietComfort Ultra', categoria: 'Audio', q: 'Bose QuietComfort Ultra', min: 200 },
+  { nombre: 'Ray-Ban Meta (gafas)', categoria: 'Electrónica', q: 'Ray-Ban Meta smart glasses', min: 200 },
+  { nombre: 'DJI Mini 4 (dron)', categoria: 'Electrónica', q: 'DJI Mini 4', min: 300 },
+  // Consolas retro
+  { nombre: 'Game Boy Color', categoria: 'Retro', q: 'Game Boy Color consola', min: 40 },
+  { nombre: 'Super Nintendo (SNES)', categoria: 'Retro', q: 'Super Nintendo SNES consola', min: 60 },
+  { nombre: 'Nintendo 64', categoria: 'Retro', q: 'Nintendo 64 consola', min: 55 },
+  { nombre: 'Sega Mega Drive', categoria: 'Retro', q: 'Sega Mega Drive consola', min: 45 },
+  { nombre: 'Analogue Pocket', categoria: 'Retro', q: 'Analogue Pocket', min: 200 },
+  // Videojuegos coleccionista
+  { nombre: 'Elden Ring Collector Edition', categoria: 'Videojuegos', q: 'Elden Ring Collector Edition', min: 100 },
+  { nombre: 'Final Fantasy VII Rebirth Collector', categoria: 'Videojuegos', q: 'Final Fantasy VII Rebirth Collector Edition', min: 150 },
+  // Vinilos
+  { nombre: 'Vinilo Michael Jackson - Thriller', categoria: 'Vinilos', q: 'Michael Jackson Thriller vinyl LP', min: 18 },
+  { nombre: 'Vinilo Nirvana - Nevermind', categoria: 'Vinilos', q: 'Nirvana Nevermind vinyl LP', min: 20 },
+  { nombre: 'Vinilo Amy Winehouse - Back to Black', categoria: 'Vinilos', q: 'Amy Winehouse Back to Black vinyl LP', min: 20 },
+  { nombre: 'Vinilo Kendrick Lamar - good kid', categoria: 'Vinilos', q: 'Kendrick Lamar good kid maad city vinyl', min: 25 },
+  // Relojes
+  { nombre: 'Swatch x Omega MoonSwatch', categoria: 'Relojes', q: 'Omega Swatch MoonSwatch', min: 200 },
+  { nombre: 'Seiko Presage', categoria: 'Relojes', q: 'Seiko Presage automatic', min: 220 },
+  { nombre: 'Citizen Eco-Drive', categoria: 'Relojes', q: 'Citizen Eco-Drive reloj', min: 90 },
+  // TCG (no Pokémon)
+  { nombre: 'Yu-Gi-Oh! caja de sobres', categoria: 'TCG', q: 'Yu-Gi-Oh booster box sellado', min: 40 },
+
+  // ===== POKÉMON (sección aparte) =====
+  { nombre: 'Pokémon caja 36 sobres (booster box)', categoria: 'Pokémon', q: 'Pokemon booster box 36 sobres sellado', min: 80 },
+  { nombre: 'Pokémon Elite Trainer Box (ETB)', categoria: 'Pokémon', q: 'Pokemon Elite Trainer Box sellado', min: 30 },
+  { nombre: 'Carta Pokémon Charizard (holo)', categoria: 'Pokémon', q: 'Pokemon Charizard carta holo', min: 30 },
+  { nombre: 'Pokémon 151 (caja de sobres)', categoria: 'Pokémon', q: 'Pokemon 151 booster box sellado', min: 80 },
+  { nombre: 'Pokémon Celebrations', categoria: 'Pokémon', q: 'Pokemon Celebrations sellado', min: 30 },
+  { nombre: 'Pokémon Crown Zenith ETB', categoria: 'Pokémon', q: 'Pokemon Crown Zenith Elite Trainer Box', min: 40 },
 ];
 
 // Fechas de lanzamiento reales (dato público) por producto. Las que no están
@@ -135,6 +190,15 @@ function percentil(ordenados: number[], p: number): number {
 }
 
 const esNuevo = (c: string) => /new|nuevo|neu|sealed|precintad|sin abrir|a estrenar/i.test(c || '');
+
+// Procesa por lotes para no lanzar decenas de peticiones a eBay a la vez.
+async function mapLimit<T, R>(arr: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < arr.length; i += limit) {
+    out.push(...(await Promise.all(arr.slice(i, i + limit).map(fn))));
+  }
+  return out;
+}
 
 async function getAppToken(clientId: string, clientSecret: string): Promise<string> {
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -257,8 +321,8 @@ export default async function handler(req: any, res: any) {
   const comprobado = new Date().toISOString();
   try {
     const token = await getAppToken(clientId, clientSecret);
-    const resultados = await Promise.all(
-      SEEDS.map(async (seed) => {
+    const resultados = await mapLimit(SEEDS, 15,
+      async (seed) => {
         const listados = (await listadosDe(seed.q, token, marketplace))
           .filter((l) => l.precio >= seed.min)
           .sort((a, b) => a.precio - b.precio);
@@ -277,7 +341,7 @@ export default async function handler(req: any, res: any) {
             condicion: l.condicion, disponible: l.disponible, url: l.url,
           })),
         };
-      })
+      }
     );
     // El score final se calcula en el frontend según el modo; ordenamos por
     // potencial como orden por defecto razonable.

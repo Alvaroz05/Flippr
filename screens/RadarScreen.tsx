@@ -65,10 +65,13 @@ export default function RadarScreen() {
   const [pagina, setPagina] = useState(0);
   const [minScore, setMinScore] = useState(0);
   const [modo, setModo] = useState<Modo>('equilibradas');
+  const [categoria, setCategoria] = useState('Todas');
 
   const POR_PAGINA = 5;
   const w = MODOS[modo].w;
+  const categorias = ['Todas', ...Array.from(new Set((data?.productos ?? []).map((p) => p.categoria)))];
   const rankeados = (data?.productos ?? [])
+    .filter((p) => categoria === 'Todas' || p.categoria === categoria)
     .map((p) => ({ p, s: score(p, w) }))
     .filter((x) => x.s >= minScore)
     .sort((a, b) => b.s - a.s);
@@ -138,6 +141,19 @@ export default function RadarScreen() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Filtro por categoría (secciones) */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              {categorias.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => { setCategoria(c); setPagina(0); }}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${categoria === c ? 'bg-dark-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {c}
+                </button>
+              ))}
             </div>
 
             {/* Filtro por score mínimo */}
