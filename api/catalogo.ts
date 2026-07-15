@@ -71,6 +71,38 @@ const SEEDS: { nombre: string; categoria: string; q: string; min: number }[] = [
   { nombre: 'Garmin Forerunner (reloj GPS)', categoria: 'Relojes', q: 'Garmin Forerunner reloj GPS', min: 120 },
 ];
 
+// Fechas de lanzamiento reales (dato público) por producto. Las que no están
+// se muestran sin fecha.
+const LANZAMIENTOS: Record<string, string> = {
+  'LEGO Star Wars Halcón Milenario UCS 75192': '2017-10-01',
+  'LEGO Technic Bugatti Chiron 42083': '2018-06-01',
+  'LEGO Icons Titanic 10294': '2021-11-08',
+  'LEGO Nintendo Entertainment System 71374': '2020-08-01',
+  'LEGO Icons Ramo de Flores 10280': '2021-01-01',
+  'LEGO Star Wars R2-D2 75308': '2021-05-01',
+  'LEGO Star Wars AT-AT 75313': '2021-11-26',
+  'LEGO Icons Bonsái 10281': '2021-01-01',
+  'LEGO Botánica Orquídea 10311': '2022-05-01',
+  'AirPods Pro 2 (USB-C)': '2023-09-22',
+  'GoPro HERO 12 Black': '2023-09-13',
+  'Dyson Airwrap Complete': '2018-10-01',
+  'Apple Watch Ultra 2': '2023-09-22',
+  'Sony WH-1000XM5': '2022-05-20',
+  'Nintendo Switch OLED (consola)': '2021-10-08',
+  'Steam Deck OLED 512GB': '2023-11-16',
+  'PlayStation 5 Slim (consola)': '2023-11-10',
+  'Zelda Tears of the Kingdom Ed. Coleccionista': '2023-05-12',
+  'Meta Quest 3': '2023-10-10',
+  'Apple Watch Series 9': '2023-09-22',
+  'Kindle Paperwhite': '2021-10-27',
+  'Nintendo Switch Lite (consola)': '2019-09-20',
+  'Vinilo Pink Floyd - The Dark Side of the Moon': '1973-03-01',
+  'Vinilo The Beatles - Abbey Road': '1969-09-26',
+  'Vinilo Daft Punk - Random Access Memories': '2013-05-17',
+  'Vinilo Fleetwood Mac - Rumours': '1977-02-04',
+  'Seiko SKX007 (reloj automático)': '1996-01-01',
+};
+
 interface Listado {
   tienda: string;
   precio: number;
@@ -190,18 +222,23 @@ function evaluar(listados: Listado[]) {
   // Estimación de rango a 3-6 meses (probabilística, NO un dato real).
   const exp = ((score - 50) / 50) * 0.25; // ±25% según score
   const band = 0.08 + (1 - confianza / 100) * 0.14; // banda más ancha si baja confianza
+  const objetivo = r2(tipico * (1 + exp)); // precio objetivo estimado (punto central)
   const est_min = Math.max(0, r2(tipico * (1 + exp - band)));
   const est_max = r2(tipico * (1 + exp + band));
+
+  // Índice de escasez a partir del nº de anuncios reales con stock.
+  const escasez_nivel = stock >= 40 ? 'facil' : stock >= 12 ? 'limitado' : 'escaso';
 
   return {
     precio_actual: r2(actual),
     precio_tipico: r2(tipico),
     descuento_pct: tipico > 0 ? r2(((tipico - actual) / tipico) * 100) : 0,
     stock,
+    escasez_nivel,
     opportunity_score: score,
     recomendacion,
     confianza,
-    estimacion: { min: est_min, max: est_max, horizonte: '3-6 meses' },
+    estimacion: { objetivo, min: est_min, max: est_max, horizonte: '3-6 meses' },
     factores: factores.map((f) => ({ nombre: f.nombre, peso: f.peso, valor: Math.round(f.valor * 100), disponible: f.disponible })),
   };
 }
@@ -225,6 +262,7 @@ export default async function handler(req: any, res: any) {
         return {
           nombre: seed.nombre,
           categoria: seed.categoria,
+          lanzamiento: LANZAMIENTOS[seed.nombre] ?? null,
           comprobado,
           ...ev,
           tiendas: listados.slice(0, 6).map((l) => ({
