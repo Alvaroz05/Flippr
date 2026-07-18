@@ -1,5 +1,10 @@
 {
   "crons": [
     { "path": "/api/cron-snapshot", "schedule": "0 6 * * *" }
-  ]
+  ],
+  "functions": {
+    "api/catalogo.ts": { "maxDuration": 60 },
+    "api/scan.ts": { "maxDuration": 60 },
+    "api/cron-snapshot.ts": { "maxDuration": 60 }
+  }
 }

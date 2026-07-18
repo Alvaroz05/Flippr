@@ -321,7 +321,7 @@ export default async function handler(req: any, res: any) {
   const comprobado = new Date().toISOString();
   try {
     const token = await getAppToken(clientId, clientSecret);
-    const resultados = await mapLimit(SEEDS, 15,
+    const resultados = await mapLimit(SEEDS, 30,
       async (seed) => {
         const listados = (await listadosDe(seed.q, token, marketplace))
           .filter((l) => l.precio >= seed.min)
